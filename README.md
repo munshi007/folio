@@ -2,8 +2,9 @@
 
 # ✦ folio
 
-**Your resume + GitHub → a portfolio people actually remember.**
-Not a template. Your agent designs **six completely different sites from your real data**, you pick the one that feels like you. Free hosting on GitHub Pages. Zero dependencies.
+**Six designers. One you.**
+
+Your agent turns your resume and GitHub into **six completely different portfolio sites**, designed from scratch for your real content. Pick the one that feels like you, ask for more like it, publish free on GitHub Pages.
 
 ```bash
 npx skills add munshi007/folio
@@ -12,153 +13,141 @@ then tell your agent: *"make my portfolio from resume.pdf"*
 
 <br>
 
-<img src="docs/blueprint.png" width="24%" alt="Blueprint theme"> <img src="docs/bento.png" width="24%" alt="Bento theme"> <img src="docs/editorial.png" width="24%" alt="Editorial theme"> <img src="docs/terminal.png" width="24%" alt="Terminal theme">
+<img src="docs/gallery.jpg" width="92%" alt="The folio gallery: six generated designs of the same profile, side by side">
 
-<sub>blueprint · bento · editorial · terminal</sub>
+<sub>The gallery: same content, six designs, each a real running site with a phone preview.</sub>
 
 </div>
 
 ---
 
-## Six designers, one you
+## Not a template
+
+Every portfolio generator gives you the same five themes everyone else has. Folio doesn't pick a theme for you: it **briefs a designer per direction** and your agent builds each one from scratch, around your actual work.
+
+These six came out of a single run on one profile (shown here with the fictional demo profile):
+
+| | | |
+|:-:|:-:|:-:|
+| <img src="docs/designs/swiss.jpg" alt="Swiss poster design"> | <img src="docs/designs/cinematic.jpg" alt="Cinematic dark design"> | <img src="docs/designs/data.jpg" alt="Data-native design"> |
+| **Swiss poster:** scrolls sideways, career chart pinned to the bottom | **Cinematic:** film title card, draggable project "stills" | **Data-native:** every number computed from your data, plus a terminal visitors can type into |
+| <img src="docs/designs/retro-os.jpg" alt="Retro desktop OS design"> | <img src="docs/designs/soft.jpg" alt="Soft bento design"> | <img src="docs/designs/blueprint.jpg" alt="Technical blueprint design"> |
+| **Retro OS:** projects are files, roles are processes, a live local clock | **Soft:** plum and clay tiles with a hover preview panel | **Blueprint:** an engineering drawing with a scrolling bill of materials |
+
+None of these existed before the run. Run it again and you get six different ones.
+
+## How it works
 
 ```text
-> generate some designs for my portfolio
+you   ›  make my portfolio from resume.pdf, my GitHub is octocat
+agent ›  reads your resume + repos → writes folio.json (no invented facts)
+      ›  folio generate          → 6 design briefs
+      ›  designs all 6 in parallel, each checked and screenshot-reviewed
+you   ›  open the gallery, click "Make this my site"
+      ›  "more like this one, keep the colors"   → 3 siblings, side by side
+      ›  folio deploy             → https://you.github.io
 ```
 
-`folio generate` writes six deliberately different design briefs. Each combines a direction (Swiss poster, cinematic credits, retro desktop OS, data-native, soft bento, technical blueprint…), a layout, a motion level, a palette strategy, a type pairing and one signature interaction, weighted toward who you are, plus a wildcard. Your agent designs all six in parallel. Every design must pass `folio theme check` (escaping, phones, dark mode, focus, reduced motion) and gets screenshot-reviewed before it's done.
+### 1. Your content, written properly
+The agent reads what you already have (resume PDF, GitHub, LinkedIn export, a few sentences) and writes `folio.json`: outcome-first bullets, one-line project pitches, your best repos picked by stars and recency. It **never invents** numbers, employers, dates or degrees. If a bullet needs a number you didn't give, it asks.
 
-Watch them land live in the gallery at `localhost:4321/__folio/gallery`: each one is a real running site with a phone preview. Pick one (`Use this`), open it, or ask for a remix: *"#2 but with #5's colors."*
+### 2. Six briefs, six designers
+`folio generate` writes six deliberately different briefs. Each one combines:
 
-From one real profile, one run produced: a Swiss poster that scrolls sideways with a career chart along the bottom; a film title card with draggable project "stills"; a cobalt data page with a terminal visitors can type into; a System 7 desktop where projects are files and roles are processes; a soft bento with a hover preview panel; and an engineering drawing with a scrolling bill of materials. Nothing was a preset.
+- a **direction**: Swiss, editorial, technical blueprint, data-native, brutalist, archive, academic paper, soft, retro OS, zine, cinematic, kinetic type
+- a **layout**, a **motion** level, a **palette** strategy and a **type** pairing (never the default AI fonts)
+- one **signature moment**: a terminal you can type into, a ⌘K palette, draggable cards, a scroll-driven timeline…
 
-## Why
+Directions are weighted to who you are, plus at least one wildcard. Your agent designs them in parallel. Before a design counts as done it must pass `folio theme check` (escaping, unsafe links, phones, dark mode, focus styles, reduced motion) and its designer looks at real screenshots of it.
 
-Most portfolios are either a bare GitHub profile or a template you spend a weekend fighting. Folio gives your AI agent (Claude Code, Cursor, Codex, OpenCode…) a skill that:
+### 3. The gallery
+`folio dev` → **http://localhost:4321/__folio/gallery**. Every design from every round, live, with a phone preview on hover. Designs appear as they land.
 
-1. **Reads what you already have:** resume PDF, GitHub profile, LinkedIn export, a few sentences.
-2. **Writes it like a recruiter wants to read it.** Outcome-first bullets, one-line project pitches, and no invented numbers, ever.
-3. **Renders a site you'd be proud to share**, with live preview and a theme switcher.
-4. **Ships it** to `https://you.github.io` in one command.
+- **Make this my site:** sets it in `folio.json` and opens your site.
+- **More like this:** asks what you like about it (vibe, colors, typography, layout, signature moment), keeps exactly that, and gets three siblings that each change two big things. They show up next to the original, and you can repeat on the winner until it's yours.
+- **Open:** click around the full site.
 
-No framework, no build step, no `node_modules`. The output is a single fast static page with SEO, social-preview tags and dark mode built in.
+### 4. Publish
+`folio deploy` pushes to the `gh-pages` branch and turns on GitHub Pages. Or point Vercel, Netlify or Cloudflare Pages at `folio build` → `dist/`.
 
 ## Quick start
 
-### With an AI agent (recommended)
+**With an agent** (Claude Code, Cursor, Codex, OpenCode…):
 
 ```bash
 npx skills add munshi007/folio
 ```
 
-Then just ask:
-
 > make my portfolio from ~/Downloads/resume.pdf, my GitHub is octocat
 
-The agent extracts your experience, picks your best repos, writes the copy, opens a live preview, and deploys when you say so.
-
-### Without an agent
+**Without one:**
 
 ```bash
-npx folio-site init --github <your-username>   # pulls profile + top repos
-npx folio-site dev                             # live preview at localhost:4321
-# edit folio.json — the page reloads as you type
-npx folio-site deploy                          # publish to GitHub Pages
+npx folio-site init --github <you>   # profile + top repos → folio.json
+npx folio-site dev                   # live preview at localhost:4321
+npx folio-site deploy                # publish to GitHub Pages
 ```
 
-## Themes
+Without an agent you can't generate designs (that's the agent's job), but you get four solid built-in themes, the live preview, and everything else.
 
-| | |
-|---|---|
-| **bento** | Card grid with a cursor spotlight. Bold and modern. Great for students, full-stack and product engineers. |
-| **editorial** | Magazine-style serif layout with numbered sections. Great for designers, writers, researchers and PMs. |
-| **terminal** | Your portfolio as a shell session, with `git log --career`. Great for systems, backend, infra and security folks. |
-| **blueprint** | An engineering drawing: drafting grid, title block, `FIG. 01` project labels, spec tables, and a stats row computed from your real data. Great for infra, data and ML. *Made by `folio design` itself.* |
+## Tweak without code
 
-Every theme handles light/dark mode, mobile, print, and `prefers-reduced-motion`.
-
-### Tweak without code
-
-`folio dev` has a control bar at the bottom of the preview. Click to switch **theme**, force **light/dark**, swap the **font** (serif, sans, mono), and **reorder or hide sections**. Every click is saved to `folio.json`:
+The preview has a control bar: pick the **design**, force **light/dark**, swap the **font** (serif, sans, mono), **reorder or hide sections**. Every click is saved to `folio.json`, and works on every design, including generated ones:
 
 ```json
 {
-  "theme": "blueprint",
+  "theme": "g1-2-cinematic",
   "accent": "#16a34a",
-  "style": {
-    "mode": "dark",
-    "font": "serif",
-    "sections": ["projects", "experience", "about"],
-    "hide": ["awards"]
-  }
+  "style": { "mode": "dark", "font": "serif", "sections": ["projects", "experience", "about"], "hide": ["awards"] }
 }
 ```
 
-These work on every theme, including ones you design yourself. Want something bigger? Ask your agent; see [Design your own](#design-your-own).
+Bigger changes, like *"make the name smaller and the projects louder"*, go to your agent. It edits the design, re-checks it and re-screenshots it.
 
-## Design your own
+## Built-in themes
 
-Don't want a theme anyone else has? Ask your agent to **"design a unique theme for my portfolio"**. The skill runs a real design loop instead of a one-shot guess:
+For a quick start without generating, four hand-tuned themes ship with folio: **bento**, **editorial**, **terminal** and **blueprint**. Blueprint was itself the first output of the design loop. They're also the starting points for `folio theme new <name> --from <theme>`.
 
-1. **Brief.** It reads your profile: who's hiring you, what your strongest work is, what shape your content has.
-2. **Direction.** It proposes three directions from a library (Swiss, editorial, technical blueprint, data-native, brutalist, archive, academic paper, retro computing, zine…) with type pairings that aren't the usual AI defaults.
-3. **Build.** `folio theme new <name>` scaffolds a theme that already renders every section safely.
-4. **Check.** `folio theme check` catches unescaped content, unsafe links, missing dark mode, mobile breakpoints, focus styles, reduced motion and generic fonts.
-5. **Look.** `folio shot` takes full-page and readable slice screenshots on desktop and phone, in light and dark.
-6. **Critique.** It scores 8 criteria (5-second read, type, rhythm, contrast, phone, content fit, distinctiveness, polish), fixes the weakest, and repeats up to 3 rounds.
-
-`blueprint` came out of exactly this loop on a real profile. In three rounds it caught an empty hero, an orphaned card, a stranded stat on phones, and a dark-mode photo filter that turned a face into a negative. Each was found from screenshots and fixed.
-
-Your theme lives in your repo at `themes/<name>.js`. Plain HTML and CSS, no framework.
+<img src="docs/blueprint.jpg" width="24%" alt="Blueprint theme"> <img src="docs/bento.jpg" width="24%" alt="Bento theme"> <img src="docs/editorial.jpg" width="24%" alt="Editorial theme"> <img src="docs/terminal.jpg" width="24%" alt="Terminal theme">
 
 ## Commands
 
 | Command | What it does |
 |---|---|
-| `folio init [--github user]` | Create `folio.json`, optionally from your GitHub profile |
-| `folio github <user>` | Merge your GitHub profile + top repos into an existing `folio.json` (never overwrites what you wrote) |
-| `folio generate [--count 6]` | Brief N different designers; your agent designs them; watch at `/__folio/gallery` |
-| `folio pick <theme> [--as name]` | Keep a generated design and set it in `folio.json` |
-| `folio dev` | Live preview with hot reload, control bar, and the generation gallery |
+| `folio init [--github <user>]` | Create `folio.json`, optionally from your GitHub profile |
+| `folio github <user>` | Merge profile + top repos into `folio.json` (never overwrites what you wrote) |
+| `folio generate [--count 6] [--seed n]` | Brief N different designers for your agent; watch them land in the gallery |
+| `folio generate --like <design> [--keep vibe\|colors\|type\|layout\|signature]` | "More like this": siblings that keep what you liked and change two big things each |
+| `folio pick <design> [--as <name>]` | Keep a generated design under a proper name and set it in `folio.json` |
+| `folio dev` | Live preview, control bar, and the gallery at `/__folio/gallery` |
 | `folio build [--out dist]` | Render the static site |
-| `folio deploy` | Build and publish to the `gh-pages` branch, then enable GitHub Pages |
+| `folio deploy` | Build and publish to GitHub Pages (asks first) |
 | `folio validate` | Check `folio.json` and get content suggestions |
-| `folio themes` | List built-in and your local themes |
-| `folio theme new <name> [--from bento]` | Scaffold `themes/<name>.js` from the starter or a built-in |
-| `folio theme check <name>` | Safety and quality checks for a theme |
-| `folio shot [--theme <name>] [--pure]` | Full-page shots plus one image per real screen, desktop and phone, light and dark, with page script errors reported (uses your installed Chrome) |
+| `folio themes` | List built-in, local and generated designs |
+| `folio theme new <name> [--from <theme>]` | Scaffold your own design in `themes/<name>.js` |
+| `folio theme check <name>` | Safety and quality checks for a design |
+| `folio shot [--theme <name>] [--pure]` | Full-page shots plus one image per real screen, desktop and phone, light and dark; reports page script errors |
 
-## `folio.json`
+## What you get
 
-Everything lives in one human-readable file. Only `name` is required, and empty sections are hidden.
+- **One static page**, no framework, no build step, nothing in `node_modules`. Fast anywhere.
+- SEO and social previews: title, description, Open Graph, JSON-LD `Person` data.
+- Dark and light, phones, print, keyboard focus, reduced motion, in every design.
+- Your data in one readable file, `folio.json`, so switching designs never touches your content.
+- A small "built with folio" link in the corner. Set `"badge": false` to remove it.
 
-```json
-{
-  "theme": "bento",
-  "name": "Maya Okafor",
-  "headline": "CS student building fast, friendly tools for developers",
-  "status": "Open to Summer 2027 internships",
-  "about": "I like making slow things fast. Last summer I cut CI times by **38%**.",
-  "links": [{ "label": "GitHub", "url": "https://github.com/maya" }],
-  "projects": [{ "name": "quickdiff", "description": "Blazing-fast terminal diffs.", "repo": "https://github.com/maya/quickdiff", "stars": 2140, "featured": true }],
-  "experience": [{ "role": "SWE Intern", "org": "Ledgerline", "start": "2026-05", "end": "2026-08", "highlights": ["Cut CI time 38% by parallelizing test shards"] }],
-  "education": [{ "school": "University of Waterloo", "degree": "BMath, Computer Science", "start": "2024", "end": "2028" }],
-  "skills": [{ "group": "Languages", "items": ["TypeScript", "Rust", "Python"] }]
-}
+## Make your own design
+
+A design is one file that exports `meta` and `render(profile, h)`, returning `{ css, body, fonts?, script? }`. `h` is a helper kit (`h.esc`, `h.attrUrl`, `h.inline`, `h.md`, `h.dateRange`, `h.icon`, `h.ordered`…), and every profile value must go through one of them.
+
+```bash
+folio theme new mine --from blueprint   # or start from the bare starter
+folio dev --theme mine                  # live preview while you edit
+folio theme check mine                  # must pass with 0 errors
+folio shot --theme mine                 # see it on desktop and phone
 ```
 
-Full schema: [`skills/folio/SKILL.md`](skills/folio/SKILL.md#foliojson-schema). Full example: [`examples/folio.example.json`](examples/folio.example.json).
-
-## Deploying
-
-`folio deploy` pushes the built site to the `gh-pages` branch of your repo's `origin` (replacing that branch only) and turns on GitHub Pages if the `gh` CLI is logged in.
-
-- Want `https://<you>.github.io/` at the root? Name the repo `<you>.github.io`.
-- Prefer Vercel, Netlify or Cloudflare Pages? Point them at `folio build` with output directory `dist`.
-
-## Contributing a theme
-
-A theme is one file that exports `meta` and `render(profile, h) → { css, body, fonts?, script? }`. `h` is a helper kit (`h.esc`, `h.attrUrl`, `h.inline`, `h.md`, `h.dateRange`, `h.icon`…); every profile value must go through one of them. Start with `folio theme new <name>`, iterate with `folio dev --theme <name>`, and make sure `folio theme check <name>` passes with no errors. To ship it as a built-in, add it to `themes/index.js` and run `npm test`, which runs the same checks on every theme.
+The design process the agent follows (brief, directions, critique rubric, banned generic-AI patterns) is in [`skills/folio/DESIGN.md`](skills/folio/DESIGN.md), and the generation flow in [`skills/folio/GENERATE.md`](skills/folio/GENERATE.md). To ship a design as a built-in, add it to `themes/index.js` and run `npm test`, which runs the same checks on every theme.
 
 ## License
 

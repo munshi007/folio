@@ -1,11 +1,11 @@
 ---
 name: folio
-description: Build a stunning personal portfolio website from a resume (PDF/DOCX/text), GitHub profile, and/or LinkedIn export, then preview and deploy it to GitHub Pages. Use when the user asks to make, update, redesign or publish a portfolio, personal site, developer homepage, or "website from my resume".
+description: Turn a resume (PDF/DOCX/text), GitHub profile and/or LinkedIn export into a personal portfolio site, by generating several genuinely different designs for the user to pick from, then refining and deploying it to GitHub Pages. Use when the user asks to make, update, redesign or publish a portfolio, personal site, developer homepage, or "website from my resume".
 ---
 
-# Folio — resume + GitHub → portfolio site
+# Folio — six designers, one person
 
-You turn what the user already has (a resume, a GitHub account, a LinkedIn export, a few sentences) into a portfolio site they're proud to share. The `folio` CLI renders and deploys; **your job is the content**: extracting facts accurately and writing them so a recruiter gets it in 10 seconds.
+You turn what the user already has (a resume, a GitHub account, a LinkedIn export, a few sentences) into a portfolio site they're proud to share. The `folio` CLI renders, checks, screenshots and deploys. **Your two jobs:** the content (extracting facts accurately and writing them so a recruiter gets it in 10 seconds) and the designs (several genuinely different ones, built for this person, so they choose rather than settle for a preset).
 
 Run the CLI with `npx -y folio-site@latest <command>` (call it `folio` below).
 
@@ -40,20 +40,20 @@ If they have nothing but a GitHub username, that's enough to start.
 - **skills**: group as Languages / Frameworks / Tools (or similar). 5–8 items per group, strongest first. Drop filler (MS Office, "Teamwork").
 - Students: education goes in, with notable coursework/honours in `details`. Hackathon wins → `awards`.
 
-### 4. Pick a theme
-Run `folio themes` to see options. Suggest one with a reason, matching the person:
-- `bento` — students, full-stack, product, mobile. Safe, modern default.
-- `editorial` — designers, writers, researchers, PMs, anyone with strong prose.
-- `terminal` — systems, backend, infra, security, CLI authors.
-Set `"accent": "#hex"` if they have a brand color.
+### 4. Generate designs (the main path)
+Follow [GENERATE.md](GENERATE.md):
+1. `folio generate` (6 by default) writes deliberately different briefs.
+2. You design them, one subagent per brief in parallel if you can.
+3. Start `folio dev` and give the user **http://localhost:4321/__folio/gallery** right away; designs appear as they land.
+4. When they find one they like, offer "more like this": ask what they like about it, then `folio generate --like <design> --keep <what>`.
 
-**Best first move for most people: generate options.** Follow [GENERATE.md](GENERATE.md): `folio generate` briefs 4–8 different designers, you design them (in parallel if you can), and the user picks from a live gallery at `/__folio/gallery`. Built-in themes are a fallback, not the main path.
+For a specific change to one design ("smaller name, louder projects"), edit that design file directly following [DESIGN.md](DESIGN.md)'s check → `folio shot` → critique loop.
 
-**Want to refine one design further?** Offer a custom theme and follow [DESIGN.md](DESIGN.md): brief, direction, `folio theme new`, then a check → `folio shot` → critique loop. Offer it when the content is solid, they're picky about design, or they say the built-ins feel generic.
+**Fallback (no time, no subagents, or they just want something now):** the built-ins. `folio themes` lists them. `bento` suits students, full-stack and product folks; `editorial` writers, researchers and PMs; `terminal` systems and infra; `blueprint` data and ML. Set `"accent": "#hex"` for a brand color.
 
 ### 5. Preview and iterate
-- Run `folio dev` in the background and give the user the URL (`http://localhost:4321`). The bottom bar switches themes live; `?theme=terminal` works too.
-- If you can take screenshots (browser tool / Playwright / headless Chrome), look at the page yourself at desktop and phone widths and fix anything awkward — overly long descriptions, a project with no description, an orphaned card — before showing it.
+- Run `folio dev` in the background and give the user the URL (`http://localhost:4321`; the gallery is at `/__folio/gallery`). The control bar at the bottom switches designs, light/dark, font and section order, and saves to `folio.json`.
+- Look at the page yourself before showing it: `folio shot --theme <name>` writes desktop and phone screenshots (one image per real screen) and reports page script errors. Fix anything awkward: overly long descriptions, a project with no description, an orphaned card.
 - Run `folio validate` and address warnings.
 - Iterate on their feedback by editing `folio.json`; the preview reloads automatically.
 

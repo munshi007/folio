@@ -1,7 +1,7 @@
 {
   "name": "folio-site",
-  "version": "0.1.0",
-  "description": "Turn your resume and GitHub into a stunning portfolio site. One command, zero dependencies.",
+  "version": "0.2.0",
+  "description": "Six designers, one you: your agent turns your resume and GitHub into several genuinely different portfolio sites, you pick one. Zero dependencies.",
   "type": "module",
   "bin": {
     "folio": "bin/folio.js"
@@ -27,7 +27,9 @@
     "static-site",
     "agent-skill",
     "claude-code",
-    "github-pages"
+    "github-pages",
+    "ai-design",
+    "design-generation"
   ],
   "license": "MIT",
   "repository": "github:munshi007/folio",

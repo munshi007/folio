@@ -37,6 +37,7 @@ When all briefs are done (or after ~10 minutes, whichever comes first), tell the
 ## 4. Pick and remix
 
 - "I like #3" → `folio pick g<run>-3-<dir> --as <their-name-or-a-nice-name>`. It renames the file and sets it in `folio.json`.
+- **"More like #4" / "I like this one, show me variations"** → ask *one* question first: what do they like about it: the overall vibe, the colors, the typography, the layout, or the signature moment? Then `folio generate --like g<run>-4-<dir> --keep <vibe|colors|type|layout|signature>` (default 3). Each variation starts as an exact copy, keeps only that, and changes **two** big things, with a color change somewhere in the set unless colors are kept. One-change siblings looked identical at gallery size; don't go back to that. Design them like a normal run (one subagent per brief, in parallel if you can). The gallery shows the original first. Repeat on the winner; each round converges.
 - "#2 but with #5's colors / less motion / projects first" → copy the picked theme with `folio theme new <name> --from` (or `folio pick … --as`), then edit following DESIGN.md's check → shot → critique loop. Pull the specific element from the other design's file.
 - "None of these" → ask what they liked and disliked in one question, then `folio generate` again with fewer, sharper briefs. Use `--count 3` and edit the briefs to bias toward what they said.
 - Unpicked `g<run>-*` theme files can stay (they're local drafts) or be deleted when the user is happy. Ask before deleting.

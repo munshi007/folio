@@ -9,14 +9,12 @@ import { fetchGitHub, mergeGitHub } from '../src/github.js';
 import { serve } from '../src/serve.js';
 import { deploy } from '../src/deploy.js';
 import { themes } from '../themes/index.js';
-import { listThemes, loadTheme } from '../src/themes.js';
+import { listThemes, loadTheme, themeSource } from '../src/themes.js';
 import { checkTheme } from '../src/themecheck.js';
 import { shoot } from '../src/shot.js';
 import { createRun, readRun, latestRun, isPending } from '../src/generate.js';
 import { normalize } from '../src/schema.js';
 import { unlink } from 'node:fs/promises';
-
-const HELPER_NAMES = 'esc, safeUrl, attrUrl, inline, md, fmtDate, dateRange, hostOf, initials, icon, linkKind';
 
 const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -25,7 +23,7 @@ const c = process.stdout.isTTY && !process.env.NO_COLOR
   : { b: String, dim: String, g: String, y: String, r: String, m: String };
 
 const HELP = `
-${c.m('✦ folio')} ${c.dim(`v${pkg.version}`)} — your resume + GitHub → a portfolio people remember
+${c.m('✦ folio')} ${c.dim(`v${pkg.version}`)} — six designers, one you: resume + GitHub → portfolio sites to pick from
 
 ${c.b('Usage')}
   folio init [--github <user>] [--theme <name>]   create folio.json (optionally from GitHub)
@@ -38,6 +36,8 @@ ${c.b('Usage')}
 
 ${c.b('Generate designs')}
   folio generate [--count 6] [--seed <n>]         brief N different designers; your agent designs them
+  folio generate --like <theme> [--keep vibe]     siblings of a design you liked: keep vibe|colors|type|layout|signature,
+                                                  change two big things each [--count 3]
   folio pick <theme> [--as <name>]                keep a design (optionally rename it), set it in folio.json
   ${c.dim('watch them land live: folio dev → http://localhost:4321/__folio/gallery')}
 
@@ -180,17 +180,7 @@ async function cmdTheme(args, config) {
     if (existsSync(dest)) throw new FolioError(`${relative(process.cwd(), dest)} already exists.`);
     const from = args.from || '_starter';
     if (from !== '_starter' && !themes[from]) throw new FolioError(`--from must be a built-in theme: ${Object.keys(themes).join(', ')}`);
-    let src = await readFile(new URL(`../themes/${from}.js`, import.meta.url), 'utf8');
-    if (from === '_starter') {
-      src = src.replace("name: '__NAME__'", `name: '${name}'`);
-    } else {
-      // Built-ins import helpers from the package; a local copy gets the same helpers from render()'s second argument.
-      // Module-level bindings so helper functions outside render() see them too.
-      src = src
-        .replace(/^import \{([^}]+)\} from '\.\.\/src\/util\.js';\n/m, `// Helpers arrive as render()'s second argument (see themes/_starter.js for the list).\nlet ${HELPER_NAMES};\n`)
-        .replace(/export function render\(p\) \{/, `export function render(p, h) {\n  ({ ${HELPER_NAMES} } = h);`)
-        .replace(/name: '[^']+'/, `name: '${name}'`);
-    }
+    const src = await themeSource(from, name, base);
     await mkdir(dirname(dest), { recursive: true });
     await writeFile(dest, src);
     console.log(`${c.g('✓')} created ${relative(process.cwd(), dest)}${from !== '_starter' ? c.dim(` (copy of ${from})`) : ''}`);
@@ -215,14 +205,17 @@ async function cmdGenerate(args, config) {
   const raw = await loadConfig(config);
   const { errors } = validate(raw);
   if (errors.length) throw new FolioError(`Fix folio.json first:\n  - ${errors.join('\n  - ')}`);
-  const count = Math.min(Math.max(Number(args.count) || 6, 1), 12);
+  const like = typeof args.like === 'string' ? args.like : null;
+  if (args.like === true) throw new FolioError('Usage: folio generate --like <theme> [--count 3]');
+  const count = Math.min(Math.max(Number(args.count) || (like ? 3 : 6), 1), 12);
   const seed = args.seed != null ? Number(args.seed) : undefined;
   // Briefs tell each designer which command to run; use the exact folio that's running now.
   const cli = `node "${process.argv[1]}"`;
-  const { run, seed: used, files } = await createRun(dirname(config), normalize(raw), { count, seed, cli });
-  console.log(`${c.g('✓')} run ${c.b(`#${run}`)}: ${files.length} briefs ${c.dim(`(seed ${used}; same seed = same briefs)`)}\n`);
+  const keep = typeof args.keep === 'string' ? args.keep : 'vibe';
+  const { run, seed: used, files } = await createRun(dirname(config), normalize(raw), { count, seed, cli, like, keep });
+  console.log(`${c.g('✓')} run ${c.b(`#${run}`)}: ${files.length} ${like ? `variations of ${c.m(like)}, keeping its ${keep}` : 'briefs'} ${c.dim(`(seed ${used}; same seed = same briefs)`)}\n`);
   for (const f of files) console.log(`  ${c.m(f.name.padEnd(24))} ${f.direction}  ${c.dim(relative(process.cwd(), f.brief))}`);
-  console.log(`\n  Each theme file renders already (as the plain starter) and is marked PENDING until designed.`);
+  console.log(`\n  Each theme file renders already (${like ? `as a copy of ${like}` : 'as the plain starter'}) and is marked PENDING until designed.`);
   console.log(`  ${c.b('Agent:')} design each brief (in parallel if you can), following skills/folio/GENERATE.md.`);
   console.log(`  ${c.b('You:')} ${c.b('folio dev')} and open ${c.b('http://localhost:4321/__folio/gallery')}. Designs appear as they land.`);
 }

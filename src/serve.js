@@ -16,7 +16,8 @@ export const BOOT = Date.now().toString(36);
 // Live-reload snippet shared by every page the dev server makes. `guard` is an optional JS condition that
 // blocks the reload (e.g. while the gallery is navigating away).
 export function liveReload(guard = 'false') {
-  return `(()=>{const es=new EventSource('/__folio/events');es.addEventListener('boot',e=>{if(e.data!=='${BOOT}'&&!(${guard}))location.reload()});es.onmessage=()=>{if(!(${guard}))location.reload()}})();`;
+  // pageshow.persisted = restored by Back/Forward from the browser's cache, frozen mid-click: reload it fresh.
+  return `(()=>{addEventListener('pageshow',e=>{if(e.persisted)location.reload()});const es=new EventSource('/__folio/events');es.addEventListener('boot',e=>{if(e.data!=='${BOOT}'&&!(${guard}))location.reload()});es.onmessage=()=>{if(!(${guard}))location.reload()}})();`;
 }
 
 const TYPES = {

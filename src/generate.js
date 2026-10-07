@@ -6,6 +6,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
+import { themeSource, loadTheme } from './themes.js';
 
 // ---- The design space -------------------------------------------------------------------------
 
@@ -134,6 +135,86 @@ export function makeBriefs(p, { count = 6, seed = Date.now() } = {}) {
   }));
 }
 
+// ---- "More like this": siblings of a design the user liked ------------------------------------
+
+const pickFrom = (list, rand, avoid = []) => {
+  const options = list.filter((x) => !avoid.includes(x));
+  return options[Math.floor(rand() * options.length)];
+};
+
+// What the user liked about the parent. That stays; everything else is open.
+export const KEEPS = {
+  vibe: "its overall mood and personality: the feeling someone gets in the first 5 seconds (not its specific fonts, colors or layout)",
+  colors: 'its color palette and the way color is used',
+  type: 'its typefaces and type scale',
+  layout: 'its page structure and layout',
+  signature: 'its signature interaction or moment',
+};
+
+// Axes a variation can change, grouped so one variation never spends both changes on the same thing.
+export const AXES = [
+  { id: 'palette', group: 'colors', label: 'New palette', detail: (r) => `New color system: ${pickFrom(PALETTES, r)}.` },
+  { id: 'flip', group: 'colors', label: 'Scheme flip', detail: () => "Flip the designed-for scheme: light-first becomes dark-first or the reverse, with accents retuned for the new ground (keep a good opposite mode too)." },
+  { id: 'type', group: 'type', label: 'New type', detail: (r) => { const d = pickFrom(DIRECTIONS, r); return `New type pairing: ${d.fonts.join(' + ')} (or something with that energy), with sizes and spacing retuned around it.`; } },
+  { id: 'layout', group: 'layout', label: 'New layout', detail: (r) => `New page structure: ${pickFrom(LAYOUTS, r)}.` },
+  { id: 'denser', group: 'layout', label: 'Denser', detail: () => 'Much denser first screen: work and experience visible immediately, small hero, tight rhythm.' },
+  { id: 'motion', group: 'motion', label: 'New motion', detail: (r) => `New motion language: ${pickFrom(MOTION, r)}.` },
+  { id: 'signature', group: 'signature', label: 'New signature', detail: (r) => `New signature moment: ${pickFrom(SIGNATURES, r)}.` },
+  { id: 'bolder', group: 'energy', label: 'Bolder', detail: () => 'Louder: bigger type scale, stronger contrast, braver first screen.' },
+  { id: 'calmer', group: 'energy', label: 'Calmer', detail: () => 'Quieter: more whitespace, sparing accent, little or no motion, simpler first screen.' },
+];
+
+// Each variation changes two axes from different groups, never touching what the user wants kept.
+// One-change siblings looked identical at gallery size, so: two big changes each, and unless colors are
+// kept, the set always includes a color change (the difference eyes notice first).
+export function makeVariations(parent, { count = 3, seed = Date.now(), keep = 'vibe' } = {}) {
+  const rand = rng(seed);
+  const allowed = AXES.filter((a) => a.group !== keep);
+  const groups = shuffle([...new Set(allowed.map((a) => a.group))], rand);
+  if (groups.includes('colors')) groups.unshift(...groups.splice(groups.indexOf('colors'), 1));
+  const used = new Set();
+  const out = [];
+  for (let i = 0; i < Math.min(count, 9); i++) {
+    // Next group in rotation that still has an unused axis (fall back to plain rotation once all are used).
+    const g1 = groups.slice(i % groups.length).concat(groups).find((g) => allowed.some((x) => x.group === g && !used.has(x.id))) ?? groups[i % groups.length];
+    const pool1 = allowed.filter((a) => a.group === g1);
+    const a = pool1.find((x) => !used.has(x.id)) ?? pool1[Math.floor(rand() * pool1.length)];
+    const pool2 = shuffle(allowed.filter((x) => x.group !== g1 && !used.has(x.id)), rand);
+    const b = pool2[0] ?? shuffle(allowed.filter((x) => x.group !== g1), rand)[0];
+    used.add(a.id);
+    used.add(b.id);
+    out.push({ n: i + 1, move: `${a.id}-${b.id}`, label: `${a.label} + ${b.label.toLowerCase()}`, changes: [a.detail(rand), b.detail(rand)], keep, parent });
+  }
+  return out.map((v) => ({ ...v, detail: v.changes.join(' ') }));
+}
+
+export function variationMarkdown(p, run, b, total, cli, parentDescription = '') {
+  const name = themeNameFor(run, b);
+  return `# Variation ${b.n}/${total}: ${b.label}
+
+${p.name} liked the design **${b.parent}**${parentDescription ? ` (“${parentDescription}”)` : ''} and asked for more like it.
+Your file starts as an **exact copy** of it. ${total} designers are each taking it somewhere different.
+
+## Keep (this is what they liked)
+${KEEPS[b.keep] ?? KEEPS.vibe}.
+
+## Change (both, and make them big)
+1. ${b.changes[0]}
+2. ${b.changes[1]}
+
+Everything not under "Keep" is open. Put your version next to the original at thumbnail size: if a stranger can't tell them apart in one second, you changed too little. Related, not identical.
+
+## Do this
+1. Edit \`themes/${name}.js\` (currently a copy of ${b.parent}). Keep \`meta.name = '${name}'\` and rewrite \`meta.description\` in one line: what this variation is.
+2. Same rules as always: every profile value through \`h.esc\` / \`h.inline\` / \`h.md\` / \`h.attrUrl\`; no external scripts; phones, dark and light, reduced motion, focus styles; \`h.ordered(p, sections)\`; works with JS off.
+3. \`${cli} theme check ${name}\`: **0 errors required.**
+4. \`${cli} shot --theme ${name} --scheme light --pure\`, then look at the \`-part1\` screens for desktop and mobile. Any \`page script error\` line means broken JS: fix it.
+5. At most one more fix round. Reply with the theme name and one sentence on what this variation is.
+
+Full rubric: skills/folio/DESIGN.md.
+`;
+}
+
 // ---- Runs on disk ----------------------------------------------------------------------------
 
 export const GEN_DIR = '.folio/gen';
@@ -150,7 +231,7 @@ export async function latestRun(base) {
   return n > 0 ? n : null;
 }
 
-export const themeNameFor = (run, b) => `g${run}-${b.n}-${b.direction.id}`;
+export const themeNameFor = (run, b) => `g${run}-${b.n}-${b.move ?? b.direction.id}`;
 
 function contentShape(p) {
   const bits = [
@@ -196,10 +277,13 @@ Full rubric and banned patterns: skills/folio/DESIGN.md.
 `;
 }
 
-export async function createRun(base, p, { count = 6, seed, cli } = {}) {
+export async function createRun(base, p, { count = 6, seed, cli, like, keep = 'vibe' } = {}) {
   const run = await nextRun(base);
   const usedSeed = seed ?? Number(createHash('sha1').update(`${Date.now()}${p.name}`).digest().readUInt32BE(0));
-  const briefs = makeBriefs(p, { count, seed: usedSeed });
+  let parentDescription = '';
+  if (like) parentDescription = (await loadTheme(like, base)).meta.description || ''; // also validates `like`
+  if (like && !KEEPS[keep]) throw new Error(`--keep must be one of: ${Object.keys(KEEPS).join(', ')}`);
+  const briefs = like ? makeVariations(like, { count, seed: usedSeed, keep }) : makeBriefs(p, { count, seed: usedSeed });
   const dir = join(base, GEN_DIR, String(run));
   await mkdir(dir, { recursive: true });
   await mkdir(join(base, 'themes'), { recursive: true });
@@ -208,20 +292,17 @@ export async function createRun(base, p, { count = 6, seed, cli } = {}) {
   const files = [];
   for (const b of briefs) {
     const name = themeNameFor(run, b);
-    const brief = briefMarkdown(p, run, b, briefs.length, cli);
+    const brief = like ? variationMarkdown(p, run, b, briefs.length, cli, parentDescription) : briefMarkdown(p, run, b, briefs.length, cli);
     await writeFile(join(dir, `brief-${b.n}.md`), brief);
     const themeFile = join(base, 'themes', `${name}.js`);
     if (!existsSync(themeFile)) {
-      await writeFile(
-        themeFile,
-        starter
-          .replace("name: '__NAME__'", `name: '${name}'`)
-          .replace("description: 'Describe the look in one line: mood, type, who it suits.'", `description: 'PENDING: ${b.direction.name} (not designed yet)'`),
-      );
+      const pending = like ? `PENDING: ${b.label} variation of ${like}` : `PENDING: ${b.direction.name} (not designed yet)`;
+      const src = like ? await themeSource(like, name, base) : starter.replace("name: '__NAME__'", `name: '${name}'`);
+      await writeFile(themeFile, markPending(src, pending));
     }
-    files.push({ name, brief: join(dir, `brief-${b.n}.md`), theme: themeFile, direction: b.direction.name });
+    files.push({ name, brief: join(dir, `brief-${b.n}.md`), theme: themeFile, direction: like ? `${b.label}: ${b.detail}` : b.direction.name });
   }
-  await writeFile(join(dir, 'run.json'), `${JSON.stringify({ run, seed: usedSeed, created: new Date().toISOString(), briefs: briefs.map((b) => ({ ...b, direction: b.direction.id, theme: themeNameFor(run, b) })) }, null, 2)}\n`);
+  await writeFile(join(dir, 'run.json'), `${JSON.stringify({ run, seed: usedSeed, parent: like ?? null, keep: like ? keep : null, created: new Date().toISOString(), briefs: briefs.map((b) => ({ ...b, direction: b.direction?.id ?? null, theme: themeNameFor(run, b) })) }, null, 2)}\n`);
 
   // Generated drafts and screenshots don't belong in the user's git history by default.
   const gi = join(base, '.folio', '.gitignore');
@@ -233,6 +314,14 @@ export async function readRun(base, run) {
   const file = join(base, GEN_DIR, String(run), 'run.json');
   if (!existsSync(file)) return null;
   return JSON.parse(await readFile(file, 'utf8'));
+}
+
+// Swap the theme's meta.description for a PENDING marker (the designer replaces it when done).
+function markPending(src, text) {
+  const value = `description: '${text.replace(/'/g, "\\'")}'`;
+  const re = /description:\s*(['"`])(?:\\.|(?!\1)[^\\])*\1/;
+  if (re.test(src)) return src.replace(re, value);
+  return src.replace(/(name:\s*'[^']+',?)/, `$1\n  ${value},`);
 }
 
 // A generated theme still carrying the PENDING description hasn't been designed yet.

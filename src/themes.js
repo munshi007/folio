@@ -6,7 +6,7 @@
 // `h` is the helpers object from util.js (esc, attrUrl, inline, md, dateRange, icon, ...).
 
 import { existsSync } from 'node:fs';
-import { readdir, stat } from 'node:fs/promises';
+import { readdir, readFile, stat } from 'node:fs/promises';
 import { resolve, join, relative, isAbsolute, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { themes as builtins } from '../themes/index.js';
@@ -65,4 +65,27 @@ export function renderWith(theme, profile) {
     throw new ThemeError(`Theme "${theme.meta.name}" render() must return { css, body, ... } with body as a string.`);
   }
   return page(profile, { css: '', ...out });
+}
+
+// Standalone source for a copy of theme `from` named `name`: the starter, a built-in, or a local theme.
+// Built-ins import helpers from the package; a local copy gets the same helpers from render()'s second
+// argument instead, bound at module level so helper functions outside render() see them too.
+export async function themeSource(from, name, baseDir = process.cwd()) {
+  const helperNames = Object.keys(helpers).join(', ');
+  const rename = (src) => src.replace(/name: '[^']+'/, `name: '${name}'`);
+  if (from === '_starter') {
+    return (await readFile(new URL('../themes/_starter.js', import.meta.url), 'utf8')).replace("name: '__NAME__'", `name: '${name}'`);
+  }
+  if (!isPathLike(from) && builtins[from]) {
+    const src = await readFile(new URL(`../themes/${from}.js`, import.meta.url), 'utf8');
+    if (!/export function render\(p\) \{/.test(src)) return rename(src); // already uses render(p, h)
+    return rename(
+      src
+        .replace(/^import \{[^}]+\} from '\.\.\/src\/util\.js';\n/m, `// Helpers arrive as render()'s second argument (see themes/_starter.js for the list).\nlet ${helperNames};\n`)
+        .replace(/export function render\(p\) \{/, `export function render(p, h) {\n  ({ ${helperNames} } = h);`),
+    );
+  }
+  const file = localThemePath(from, baseDir);
+  if (!existsSync(file)) throw new ThemeError(`Unknown theme "${from}".`);
+  return rename(await readFile(file, 'utf8'));
 }

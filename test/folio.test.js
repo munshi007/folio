@@ -284,11 +284,16 @@ test('createRun writes briefs + renderable pending themes; gallery reads them', 
   assert.equal((await createRun(dir, normalize(example), { count: 2, seed: 2 })).run, 2, 'runs number upward');
   assert.equal(readFileSync(join(dir, '.folio', '.gitignore'), 'utf8'), '*\n');
 
-  const data = await galleryData(dir, 1);
-  assert.equal(data.items.length, 3);
-  assert.ok(data.items.every((i) => i.pending));
-  const html = galleryPage(data, { name: 'Maya <x>', current: 'bento' });
-  assert.match(html, /3 versions of <em>Maya<\/em>/);
+  const one = await galleryData(dir, 1);
+  assert.equal(one.runs.length, 1);
+  assert.equal(one.runs[0].items.length, 3);
+  assert.ok(one.runs[0].items.every((i) => i.pending));
+  const all = await galleryData(dir);
+  assert.deepEqual(all.runs.map((r) => r.run), [2, 1], 'every run, newest first');
+  const html = galleryPage(all, { name: 'Maya <x>', current: 'bento' });
+  assert.match(html, /5 versions of <em>Maya<\/em>/);
+  assert.match(html, /id="run-1"/);
+  assert.match(html, /id="run-2"/);
   assert.ok(!html.includes('<x>'), 'name must be escaped');
 });
 
@@ -298,4 +303,57 @@ test('adopting from the gallery sets the theme and drops look overrides, keeps c
   assert.equal(next.theme, 'blueprint');
   assert.deepEqual(next.style, { hide: ['awards'] });
   assert.equal(applyStyleChange(raw, 'theme', 'blueprint', ['bento', 'blueprint']).style.font, 'serif', 'plain theme switch keeps overrides');
+});
+
+// ---- more like this -------------------------------------------------------------------------
+import { makeVariations } from '../src/generate.js';
+import { themeSource } from '../src/themes.js';
+
+test('every built-in theme copies into a standalone theme that passes checks', async () => {
+  for (const name of Object.keys(themes)) {
+    const dir = mkdtempSync(join(tmpdir(), 'folio-copy-'));
+    mkdirSync(join(dir, 'themes'));
+    writeFileSync(join(dir, 'themes', `my-${name}.js`), await themeSource(name, `my-${name}`, dir));
+    const t = await loadTheme(`my-${name}`, dir);
+    assert.equal(t.meta.name, `my-${name}`);
+    assert.deepEqual(checkTheme(t).errors, [], `copy of ${name}`);
+  }
+});
+
+test('makeVariations: two big changes each, a color change in the set, never touches what is kept', () => {
+  const v = makeVariations('bento', { count: 3, seed: 9 });
+  assert.deepEqual(v, makeVariations('bento', { count: 3, seed: 9 }), 'reproducible');
+  assert.ok(v.every((x) => x.changes.length === 2 && x.parent === 'bento' && x.keep === 'vibe'));
+  const ids = v.flatMap((x) => x.move.split('-'));
+  assert.equal(new Set(ids).size, ids.length, 'no axis repeats within 3 variations');
+  assert.ok(ids.some((id) => id === 'palette' || id === 'flip'), 'set includes a color change');
+  for (const keep of ['colors', 'type', 'layout', 'signature']) {
+    const groups = { colors: ['palette', 'flip'], type: ['type'], layout: ['layout', 'denser'], signature: ['signature'] }[keep];
+    for (const seed of [1, 2, 3, 4, 5]) {
+      const moved = makeVariations('bento', { count: 3, seed, keep }).flatMap((x) => x.move.split('-'));
+      assert.ok(!moved.some((id) => groups.includes(id)), `keep=${keep} must not change ${groups}`);
+    }
+  }
+});
+
+test('generate --like copies the parent, marks pending, and the gallery shows the original first', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-like-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  const { files } = await createRun(dir, normalize(example), { count: 3, seed: 3, cli: 'folio', like: 'blueprint', keep: 'colors' });
+  assert.equal(files.length, 3);
+  for (const f of files) {
+    const src = readFileSync(f.theme, 'utf8');
+    assert.match(src, /PENDING: .+ variation of blueprint/);
+    assert.match(src, /Drafting grid|drafting grid/, 'starts as a copy of the parent');
+    assert.match(readFileSync(f.brief, 'utf8'), /exact copy/);
+    assert.match(readFileSync(f.brief, 'utf8'), /## Keep \(this is what they liked\)\nits color palette/);
+    assert.deepEqual(checkTheme(await loadTheme(f.name, dir)).errors, []);
+  }
+  const data = await galleryData(dir, 1);
+  assert.equal(data.runs[0].parent, 'blueprint');
+  assert.equal(data.runs[0].items[0].original, true);
+  assert.equal(data.runs[0].items.length, 4);
+  assert.match(galleryPage(data, { name: 'Maya', current: 'blueprint' }), /More like <em>blueprint<\/em>/);
+  await assert.rejects(createRun(dir, normalize(example), { count: 2, like: 'nope' }));
+  await assert.rejects(createRun(dir, normalize(example), { count: 2, like: 'blueprint', keep: 'everything' }));
 });
