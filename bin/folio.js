@@ -12,6 +12,9 @@ import { themes } from '../themes/index.js';
 import { listThemes, loadTheme } from '../src/themes.js';
 import { checkTheme } from '../src/themecheck.js';
 import { shoot } from '../src/shot.js';
+import { createRun, readRun, latestRun, isPending } from '../src/generate.js';
+import { normalize } from '../src/schema.js';
+import { unlink } from 'node:fs/promises';
 
 const HELPER_NAMES = 'esc, safeUrl, attrUrl, inline, md, fmtDate, dateRange, hostOf, initials, icon, linkKind';
 
@@ -33,11 +36,16 @@ ${c.b('Usage')}
   folio validate                                  check folio.json
   folio themes                                    list built-in + your local themes
 
+${c.b('Generate designs')}
+  folio generate [--count 6] [--seed <n>]         brief N different designers; your agent designs them
+  folio pick <theme> [--as <name>]                keep a design (optionally rename it), set it in folio.json
+  ${c.dim('watch them land live: folio dev → http://localhost:4321/__folio/gallery')}
+
 ${c.b('Design your own theme')}
   folio theme new <name> [--from <theme>]         scaffold themes/<name>.js (from the starter or a built-in)
   folio theme check <name>                        safety + quality checks (escaping, mobile, dark mode, a11y, fonts)
-  folio shot [--theme <name>] [--out folio-shots] full-page screenshots: desktop + mobile, light + dark
-            [--device desktop|mobile] [--scheme light|dark]
+  folio shot [--theme <name>] [--out folio-shots] full-page + per-screen shots: desktop + phone, light + dark
+            [--device desktop|mobile] [--scheme light|dark] [--pure]   (--pure ignores your style overrides)
 
 ${c.b('Options')}
   --config <path>   folio.json location (default: ./folio.json)
@@ -203,17 +211,62 @@ async function cmdTheme(args, config) {
   throw new FolioError('Usage: folio theme new <name> | folio theme check <name>');
 }
 
+async function cmdGenerate(args, config) {
+  const raw = await loadConfig(config);
+  const { errors } = validate(raw);
+  if (errors.length) throw new FolioError(`Fix folio.json first:\n  - ${errors.join('\n  - ')}`);
+  const count = Math.min(Math.max(Number(args.count) || 6, 1), 12);
+  const seed = args.seed != null ? Number(args.seed) : undefined;
+  // Briefs tell each designer which command to run; use the exact folio that's running now.
+  const cli = `node "${process.argv[1]}"`;
+  const { run, seed: used, files } = await createRun(dirname(config), normalize(raw), { count, seed, cli });
+  console.log(`${c.g('✓')} run ${c.b(`#${run}`)}: ${files.length} briefs ${c.dim(`(seed ${used}; same seed = same briefs)`)}\n`);
+  for (const f of files) console.log(`  ${c.m(f.name.padEnd(24))} ${f.direction}  ${c.dim(relative(process.cwd(), f.brief))}`);
+  console.log(`\n  Each theme file renders already (as the plain starter) and is marked PENDING until designed.`);
+  console.log(`  ${c.b('Agent:')} design each brief (in parallel if you can), following skills/folio/GENERATE.md.`);
+  console.log(`  ${c.b('You:')} ${c.b('folio dev')} and open ${c.b('http://localhost:4321/__folio/gallery')}. Designs appear as they land.`);
+}
+
+async function cmdPick(args, config) {
+  const base = dirname(config);
+  const name = args._[1];
+  if (!name) throw new FolioError('Usage: folio pick <theme> [--as <new-name>]');
+  await loadTheme(name, base); // throws a clear error if it doesn't exist
+  let final = name;
+  if (args.as) {
+    if (!NAME_RE.test(args.as) || themes[args.as]) throw new FolioError(`--as must be a new lowercase name (letters, digits, dashes), not a built-in.`);
+    const from = join(base, 'themes', `${name}.js`);
+    const to = join(base, 'themes', `${args.as}.js`);
+    if (!existsSync(from)) throw new FolioError(`Only local themes can be renamed (${name} is built-in).`);
+    if (existsSync(to)) throw new FolioError(`${relative(process.cwd(), to)} already exists.`);
+    const src = (await readFile(from, 'utf8')).replace(/name: '[^']+'/, `name: '${args.as}'`);
+    await writeFile(to, src);
+    await unlink(from);
+    final = args.as;
+  }
+  if (await isPending(join(base, 'themes', `${final}.js`)) && !themes[final]) {
+    console.log(`  ${c.y('!')} ${final} hasn't been designed yet (still the starter).`);
+  }
+  const raw = await loadConfig(config);
+  raw.theme = final;
+  await writeFile(config, `${JSON.stringify(raw, null, 2)}\n`);
+  console.log(`${c.g('✓')} folio.json now uses ${c.m(final)}${args.as ? c.dim(` (renamed from ${name})`) : ''}`);
+}
+
 async function cmdShot(args, config) {
   const t0 = Date.now();
-  const { files, theme } = await shoot({
+  const { files, theme, errors = [] } = await shoot({
     config,
     theme: args.theme,
     out: args.out || 'folio-shots',
     devices: args.device ? [args.device] : undefined,
     schemes: args.scheme ? [args.scheme] : undefined,
+    pure: Boolean(args.pure),
   });
   console.log(`${c.g('✓')} ${files.length} screenshot(s) of ${c.m(theme)} ${c.dim(`(${((Date.now() - t0) / 1000).toFixed(1)}s)`)}`);
   for (const f of files) console.log(`  ${relative(process.cwd(), f.file)} ${c.dim(f.part ? `slice ${f.part}` : `${f.device} · ${f.scheme} · ${f.height}px${f.truncated ? ' · truncated' : ''}`)}`);
+  for (const e of errors) console.log(`  ${c.r('✗ page script error:')} ${e}`);
+  if (errors.length) process.exitCode = 1;
 }
 
 async function main() {
@@ -245,6 +298,10 @@ async function main() {
       return;
     case 'theme':
       return cmdTheme(args, config);
+    case 'generate':
+      return cmdGenerate(args, config);
+    case 'pick':
+      return cmdPick(args, config);
     case 'shot':
     case 'screenshot':
       return cmdShot(args, config);

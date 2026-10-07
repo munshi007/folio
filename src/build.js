@@ -26,11 +26,13 @@ function localAssets(p) {
   return [...new Set(paths.filter((u) => !/^[a-z][a-z0-9+.-]*:/i.test(u) && !u.startsWith('//')))];
 }
 
-export async function renderHtml(raw, { theme, baseDir = process.cwd() } = {}) {
+export async function renderHtml(raw, { theme, baseDir = process.cwd(), pure = false } = {}) {
   const { errors, warnings } = validate(raw);
   if (errors.length) throw new FolioError(`folio.json has problems:\n  - ${errors.join('\n  - ')}`);
   const p = normalize(raw);
   if (theme) p.theme = theme;
+  // pure: show the theme exactly as designed (gallery, design reviews), ignoring the user's mode/font overrides.
+  if (pure) p.style = { ...p.style, mode: 'auto', font: 'theme' };
   const t = await loadTheme(p.theme, baseDir);
   return { html: renderWith(t, p), profile: p, warnings };
 }
@@ -51,11 +53,11 @@ async function assertSafeOutDir(outDir, base) {
   }
 }
 
-export async function build({ config = 'folio.json', out = 'dist', theme } = {}) {
+export async function build({ config = 'folio.json', out = 'dist', theme, pure = false } = {}) {
   const configPath = resolve(config);
   const outDir = resolve(out);
   const raw = await loadConfig(configPath);
-  const { html, profile, warnings } = await renderHtml(raw, { theme, baseDir: dirname(configPath) });
+  const { html, profile, warnings } = await renderHtml(raw, { theme, baseDir: dirname(configPath), pure });
 
   await assertSafeOutDir(outDir, dirname(configPath));
   await rm(outDir, { recursive: true, force: true });

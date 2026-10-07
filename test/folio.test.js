@@ -250,3 +250,52 @@ test('dev server style endpoint rejects cross-site and malformed writes', async 
     srv.close();
   }
 });
+
+// ---- generate ---------------------------------------------------------------------------------
+import { makeBriefs, createRun, readRun, isPending, profileTags } from '../src/generate.js';
+import { galleryData, galleryPage } from '../src/gallery.js';
+
+test('makeBriefs: reproducible, all directions distinct, fits weighted in', () => {
+  const p = normalize(example);
+  const a = makeBriefs(p, { count: 6, seed: 42 });
+  const b = makeBriefs(p, { count: 6, seed: 42 });
+  assert.deepEqual(a, b);
+  assert.equal(new Set(a.map((x) => x.direction.id)).size, 6);
+  assert.equal(new Set(a.map((x) => x.layout)).size, 6);
+  assert.ok(a.some((x) => x.wildcard), 'needs at least one wildcard');
+  assert.notDeepEqual(makeBriefs(p, { count: 6, seed: 7 }).map((x) => x.direction.id), a.map((x) => x.direction.id));
+  assert.ok(profileTags(p).includes('student'));
+});
+
+test('createRun writes briefs + renderable pending themes; gallery reads them', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-gen-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  const { run, files } = await createRun(dir, normalize(example), { count: 3, seed: 1, cli: 'folio' });
+  assert.equal(run, 1);
+  assert.equal(files.length, 3);
+  for (const f of files) {
+    assert.ok(existsSync(f.brief) && existsSync(f.theme));
+    assert.ok(await isPending(f.theme));
+    assert.match(readFileSync(f.brief, 'utf8'), new RegExp(`folio theme check ${f.name}`));
+    const { html } = await renderHtml(example, { theme: f.name, baseDir: dir });
+    assert.match(html, /Maya Okafor/);
+  }
+  assert.equal((await readRun(dir, 1)).briefs.length, 3);
+  assert.equal((await createRun(dir, normalize(example), { count: 2, seed: 2 })).run, 2, 'runs number upward');
+  assert.equal(readFileSync(join(dir, '.folio', '.gitignore'), 'utf8'), '*\n');
+
+  const data = await galleryData(dir, 1);
+  assert.equal(data.items.length, 3);
+  assert.ok(data.items.every((i) => i.pending));
+  const html = galleryPage(data, { name: 'Maya <x>', current: 'bento' });
+  assert.match(html, /3 versions of <em>Maya<\/em>/);
+  assert.ok(!html.includes('<x>'), 'name must be escaped');
+});
+
+test('adopting from the gallery sets the theme and drops look overrides, keeps content choices', () => {
+  const raw = { name: 'A', theme: 'bento', style: { font: 'serif', mode: 'dark', hide: ['awards'] } };
+  const next = applyStyleChange(raw, 'adopt', 'blueprint', ['bento', 'blueprint']);
+  assert.equal(next.theme, 'blueprint');
+  assert.deepEqual(next.style, { hide: ['awards'] });
+  assert.equal(applyStyleChange(raw, 'theme', 'blueprint', ['bento', 'blueprint']).style.font, 'serif', 'plain theme switch keeps overrides');
+});

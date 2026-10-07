@@ -3,7 +3,7 @@
 # ✦ folio
 
 **Your resume + GitHub → a portfolio people actually remember.**
-One command. Four themes, or one designed just for you. Free hosting on GitHub Pages. Zero dependencies.
+Not a template. Your agent designs **six completely different sites from your real data**, you pick the one that feels like you. Free hosting on GitHub Pages. Zero dependencies.
 
 ```bash
 npx skills add munshi007/folio
@@ -19,6 +19,18 @@ then tell your agent: *"make my portfolio from resume.pdf"*
 </div>
 
 ---
+
+## Six designers, one you
+
+```text
+> generate some designs for my portfolio
+```
+
+`folio generate` writes six deliberately different design briefs. Each combines a direction (Swiss poster, cinematic credits, retro desktop OS, data-native, soft bento, technical blueprint…), a layout, a motion level, a palette strategy, a type pairing and one signature interaction, weighted toward who you are, plus a wildcard. Your agent designs all six in parallel. Every design must pass `folio theme check` (escaping, phones, dark mode, focus, reduced motion) and gets screenshot-reviewed before it's done.
+
+Watch them land live in the gallery at `localhost:4321/__folio/gallery`: each one is a real running site with a phone preview. Pick one (`Use this`), open it, or ask for a remix: *"#2 but with #5's colors."*
+
+From one real profile, one run produced: a Swiss poster that scrolls sideways with a career chart along the bottom; a film title card with draggable project "stills"; a cobalt data page with a terminal visitors can type into; a System 7 desktop where projects are files and roles are processes; a soft bento with a hover preview panel; and an engineering drawing with a scrolling bill of materials. Nothing was a preset.
 
 ## Why
 
@@ -105,14 +117,16 @@ Your theme lives in your repo at `themes/<name>.js`. Plain HTML and CSS, no fram
 |---|---|
 | `folio init [--github user]` | Create `folio.json`, optionally from your GitHub profile |
 | `folio github <user>` | Merge your GitHub profile + top repos into an existing `folio.json` (never overwrites what you wrote) |
-| `folio dev` | Live preview with hot reload and theme switcher |
+| `folio generate [--count 6]` | Brief N different designers; your agent designs them; watch at `/__folio/gallery` |
+| `folio pick <theme> [--as name]` | Keep a generated design and set it in `folio.json` |
+| `folio dev` | Live preview with hot reload, control bar, and the generation gallery |
 | `folio build [--out dist]` | Render the static site |
 | `folio deploy` | Build and publish to the `gh-pages` branch, then enable GitHub Pages |
 | `folio validate` | Check `folio.json` and get content suggestions |
 | `folio themes` | List built-in and your local themes |
 | `folio theme new <name> [--from bento]` | Scaffold `themes/<name>.js` from the starter or a built-in |
 | `folio theme check <name>` | Safety and quality checks for a theme |
-| `folio shot [--theme <name>]` | Full-page and slice screenshots: desktop and phone, light and dark (uses your installed Chrome) |
+| `folio shot [--theme <name>] [--pure]` | Full-page shots plus one image per real screen, desktop and phone, light and dark, with page script errors reported (uses your installed Chrome) |
 
 ## `folio.json`
 

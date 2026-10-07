@@ -10,6 +10,7 @@ import { pathToFileURL } from 'node:url';
 import { promisify } from 'node:util';
 import { build } from './build.js';
 import { FolioError } from './errors.js';
+import { cdpAvailable, launch } from './cdp.js';
 
 const run = promisify(execFile);
 
@@ -33,8 +34,8 @@ export function findChrome() {
 }
 
 const DEVICES = {
-  desktop: { width: 1440, minHeight: 900, part: 1600 },
-  mobile: { width: 390, minHeight: 844, part: 1300 },
+  desktop: { width: 1440, minHeight: 900, part: 1600, viewport: 900, scale: 1, mobile: false },
+  mobile: { width: 390, minHeight: 844, part: 1300, viewport: 844, scale: 2, mobile: true },
 };
 const MAX_HEIGHT = 12000;
 // Headless Chrome won't make a window narrower than ~500px, so phones render inside an iframe.
@@ -58,13 +59,14 @@ async function chrome(bin, args) {
   return stdout;
 }
 
-const MEASURE = `<script>addEventListener('load',()=>setTimeout(()=>{document.title='folio-h:'+document.documentElement.scrollHeight},300))</script>`;
+// Measure after web fonts finish: pages often grow once real fonts replace the fallbacks.
+const MEASURE = `<script>addEventListener('load',()=>(document.fonts?document.fonts.ready:Promise.resolve()).then(()=>setTimeout(()=>{document.title='folio-h:'+document.documentElement.scrollHeight},300)))</script>`;
 
 // Renders index.html in an iframe of ?w= width, shifted up by ?y= px. Used for phone widths and for page slices.
 const FRAME = `<!doctype html><meta charset="utf-8"><style>html,body{margin:0;background:#8a8a8a;overflow:hidden}iframe{display:block;border:0;position:relative}</style>
 <iframe src="index.html" scrolling="no"></iframe>
 <script>const q=new URLSearchParams(location.search),f=document.querySelector('iframe');f.style.width=(q.get('w')||390)+'px';f.style.top=-(q.get('y')||0)+'px';
-f.onload=()=>setTimeout(()=>{const h=f.contentDocument.documentElement.scrollHeight;f.style.height=h+'px';document.title='folio-h:'+h},300)</script>`;
+f.onload=()=>{const d=f.contentDocument;(d.fonts?d.fonts.ready:Promise.resolve()).then(()=>setTimeout(()=>{const h=d.documentElement.scrollHeight;f.style.height=h+'px';document.title='folio-h:'+h},300))}</script>`;
 
 async function measure(bin, url, windowWidth, scheme) {
   const dom = await chrome(bin, [...flags(scheme), `--window-size=${windowWidth},900`, '--virtual-time-budget=4000', '--dump-dom', url]);
@@ -72,7 +74,7 @@ async function measure(bin, url, windowWidth, scheme) {
   return m ? Number(m[1]) : null;
 }
 
-export async function shoot({ config = 'folio.json', theme, out = 'folio-shots', schemes = ['light', 'dark'], devices = ['desktop', 'mobile'] } = {}) {
+export async function shoot({ config = 'folio.json', theme, out = 'folio-shots', schemes = ['light', 'dark'], devices = ['desktop', 'mobile'], pure = false } = {}) {
   const bin = findChrome();
   if (!bin) {
     throw new FolioError('No Chrome/Chromium found. Install one or set CHROME_PATH=/path/to/chrome. (Agents: use your own browser/screenshot tool on `folio dev` instead.)');
@@ -83,7 +85,7 @@ export async function shoot({ config = 'folio.json', theme, out = 'folio-shots',
   const outDir = resolve(out);
   try {
     const site = join(work, 'site');
-    const { profile } = await build({ config, out: site, theme });
+    const { profile } = await build({ config, out: site, theme, pure });
     const index = join(site, 'index.html');
     const html = await readFile(index, 'utf8');
     await writeFile(join(site, 'measure.html'), html.replace('</body>', `${MEASURE}</body>`));
@@ -93,6 +95,38 @@ export async function shoot({ config = 'folio.json', theme, out = 'folio-shots',
 
     const files = [];
     const slug = profile.theme.replace(/[^\w.-]+/g, '_');
+
+    // Preferred path: DevTools protocol, a real viewport (so 100vh heroes stay one screen tall) and real phone
+    // emulation. Slices are true scrolled screens, exactly what a visitor sees.
+    if (cdpAvailable()) {
+      const browser = await launch(bin);
+      try {
+        for (const device of devices) {
+          const d = DEVICES[device];
+          for (const scheme of schemes) {
+            const measured = await browser.open(pathToFileURL(index).href, { width: d.width, height: d.viewport, mobile: d.mobile, scale: d.scale, scheme });
+            const height = Math.min(Math.max(measured, d.viewport), MAX_HEIGHT);
+            const file = join(outDir, `${slug}-${device}-${scheme}.png`);
+            await writeFile(file, await browser.fullPage(d.width, height));
+            files.push({ file, device, scheme, height, truncated: measured > MAX_HEIGHT });
+            if (height > d.viewport * 1.5) {
+              const count = Math.ceil(height / d.viewport);
+              for (let i = 0; i < count; i++) {
+                const partFile = join(outDir, `${slug}-${device}-${scheme}-part${i + 1}.png`);
+                await writeFile(partFile, await browser.screen(i * d.viewport));
+                files.push({ file: partFile, device, scheme, height: d.viewport, part: `${i + 1}/${count}` });
+              }
+            }
+          }
+        }
+        var errors = [...new Set(browser.errors)];
+      } finally {
+        await browser.close();
+      }
+      return { files, theme: profile.theme, errors };
+    }
+
+    // Fallback (Node < 22): plain `chrome --screenshot`. Pages using 100vh may come out stretched.
     for (const device of devices) {
       const { width, minHeight, part } = DEVICES[device];
       const framed = device === 'mobile';

@@ -47,7 +47,9 @@ Run `folio themes` to see options. Suggest one with a reason, matching the perso
 - `terminal` — systems, backend, infra, security, CLI authors.
 Set `"accent": "#hex"` if they have a brand color.
 
-**Want a site that looks like nobody else's?** Offer a custom theme and follow [DESIGN.md](DESIGN.md): brief, direction, `folio theme new`, then a check → `folio shot` → critique loop. Offer it when the content is solid, they're picky about design, or they say the built-ins feel generic.
+**Best first move for most people: generate options.** Follow [GENERATE.md](GENERATE.md): `folio generate` briefs 4–8 different designers, you design them (in parallel if you can), and the user picks from a live gallery at `/__folio/gallery`. Built-in themes are a fallback, not the main path.
+
+**Want to refine one design further?** Offer a custom theme and follow [DESIGN.md](DESIGN.md): brief, direction, `folio theme new`, then a check → `folio shot` → critique loop. Offer it when the content is solid, they're picky about design, or they say the built-ins feel generic.
 
 ### 5. Preview and iterate
 - Run `folio dev` in the background and give the user the URL (`http://localhost:4321`). The bottom bar switches themes live; `?theme=terminal` works too.
