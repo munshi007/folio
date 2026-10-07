@@ -1,0 +1,35 @@
+{
+  "name": "folio-site",
+  "version": "0.1.0",
+  "description": "Turn your resume and GitHub into a stunning portfolio site. One command, zero dependencies.",
+  "type": "module",
+  "bin": {
+    "folio": "bin/folio.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "themes",
+    "skills",
+    "examples"
+  ],
+  "scripts": {
+    "test": "node --test \"test/*.test.js\"",
+    "example": "node bin/folio.js build --config examples/folio.example.json --out dist-example"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "keywords": [
+    "portfolio",
+    "resume",
+    "personal-website",
+    "static-site",
+    "agent-skill",
+    "claude-code",
+    "github-pages"
+  ],
+  "license": "MIT",
+  "repository": "github:munshi007/folio",
+  "homepage": "https://github.com/munshi007/folio"
+}

@@ -1,0 +1,86 @@
+{
+  "theme": "bento",
+  "name": "Maya Okafor",
+  "headline": "CS student building fast, friendly tools for developers",
+  "location": "Toronto, Canada",
+  "status": "Open to Summer 2027 internships",
+  "email": "maya@example.com",
+  "about": "I'm a third-year Computer Science student at the University of Waterloo. I like making slow things fast and confusing things obvious.\n\nLast summer I cut CI times by **38%** at a fintech startup. On weekends I maintain [quickdiff](https://github.com/example/quickdiff), a terminal diff viewer used by ~2k developers.",
+  "links": [
+    { "label": "GitHub", "url": "https://github.com/example" },
+    { "label": "LinkedIn", "url": "https://www.linkedin.com/in/example" },
+    { "label": "X", "url": "https://x.com/example" }
+  ],
+  "projects": [
+    {
+      "name": "quickdiff",
+      "description": "A blazing-fast terminal diff viewer with syntax highlighting and word-level diffs.",
+      "repo": "https://github.com/example/quickdiff",
+      "tags": ["Rust", "CLI", "TUI"],
+      "stars": 2140,
+      "year": "2025",
+      "featured": true,
+      "highlights": ["Renders 100k-line diffs in under 50ms", "Featured on Hacker News front page"]
+    },
+    {
+      "name": "StudyBuddy",
+      "description": "Turns lecture slides into spaced-repetition flashcards. Used by 600+ students on campus.",
+      "url": "https://example.com/studybuddy",
+      "tags": ["Next.js", "Postgres", "LLMs"],
+      "year": "2026",
+      "featured": true
+    },
+    {
+      "name": "transit-pulse",
+      "description": "Live map of Toronto transit delays built on open GTFS-realtime feeds.",
+      "repo": "https://github.com/example/transit-pulse",
+      "tags": ["TypeScript", "MapLibre"],
+      "stars": 312,
+      "year": "2025",
+      "featured": true
+    },
+    {
+      "name": "dotfiles",
+      "description": "My zsh, neovim and tmux setup.",
+      "repo": "https://github.com/example/dotfiles",
+      "tags": ["Shell"],
+      "stars": 48
+    }
+  ],
+  "experience": [
+    {
+      "role": "Software Engineering Intern",
+      "org": "Ledgerline",
+      "location": "Toronto",
+      "start": "2026-05",
+      "end": "2026-08",
+      "highlights": [
+        "Cut CI pipeline time by **38%** by parallelizing test shards and caching Docker layers",
+        "Shipped a fraud-alert webhook used by 40+ business customers"
+      ]
+    },
+    {
+      "role": "Teaching Assistant, CS 136",
+      "org": "University of Waterloo",
+      "start": "2025-09",
+      "end": "2025-12",
+      "summary": "Ran weekly tutorials for 120 students on data structures and C."
+    }
+  ],
+  "education": [
+    {
+      "school": "University of Waterloo",
+      "degree": "BMath, Computer Science (Co-op)",
+      "start": "2024",
+      "end": "2028",
+      "details": "Dean's Honours List · Competitive Programming Club"
+    }
+  ],
+  "skills": [
+    { "group": "Languages", "items": ["TypeScript", "Rust", "Python", "Go", "C"] },
+    { "group": "Tools", "items": ["React", "Next.js", "Postgres", "Docker", "GitHub Actions"] }
+  ],
+  "awards": [
+    { "title": "1st place, Hack the North", "org": "Best Developer Tool", "date": "2025-09" }
+  ]
+}
