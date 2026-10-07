@@ -100,3 +100,6 @@ export function linkKind(url) {
   if (h === 'x.com' || h === 'twitter.com') return 'x';
   return 'link';
 }
+
+// Passed to every theme's render(profile, h) so themes outside this package need no imports.
+export const helpers = Object.freeze({ esc, safeUrl, attrUrl, inline, md, fmtDate, dateRange, hostOf, initials, icon, linkKind });

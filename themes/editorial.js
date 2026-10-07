@@ -10,10 +10,11 @@ const css = `
 @media (prefers-color-scheme:dark){:root{--bg:#121110;--ink:#efe9e0;--muted:#9d958b;--rule:rgba(239,233,224,.14);--card:#1a1917;--accent:#fb923c}}
 *{box-sizing:border-box}
 html{scroll-behavior:smooth}
-body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.65 Inter,ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 17px/1.65 "Instrument Sans",ui-sans-serif,system-ui,sans-serif;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 a{color:inherit;text-decoration-color:var(--rule);text-underline-offset:3px;transition:color .2s,text-decoration-color .2s}
 a:hover{color:var(--accent);text-decoration-color:currentColor}
 ::selection{background:var(--accent);color:var(--bg)}
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
 .wrap{max-width:1080px;margin:0 auto;padding:0 28px}
 .serif{font-family:Fraunces,"Iowan Old Style",Georgia,serif;font-optical-sizing:auto}
 nav.top{display:flex;justify-content:space-between;align-items:center;padding:22px 0;font-size:14px;color:var(--muted)}
@@ -230,7 +231,7 @@ ${mail ? `<a class="big" href="${attrUrl(mail.url)}">${esc(mail.url.replace(/^ma
 </div>`;
 
   return {
-    fonts: 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Inter:wght@400;500&display=swap',
+    fonts: 'https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..500&family=Instrument+Sans:wght@400;500;600&display=swap',
     css,
     body,
     script,

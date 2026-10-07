@@ -15,6 +15,7 @@ body{margin:0;min-height:100vh;background:var(--bg);color:var(--ink);font:400 15
 a{color:var(--blue);text-decoration:none;border-bottom:1px dotted currentColor}
 a:hover{color:var(--accent)}
 ::selection{background:var(--accent);color:var(--bg)}
+:focus-visible{outline:2px dashed var(--accent);outline-offset:3px}
 .term{max-width:940px;margin:6vh auto;border:1px solid var(--line);border-radius:12px;background:var(--panel);box-shadow:0 30px 80px -20px rgba(0,0,0,.55),0 0 0 1px rgba(0,0,0,.2);overflow:hidden}
 .bar{display:flex;align-items:center;gap:8px;padding:12px 16px;background:var(--bar);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
 .bar i{width:12px;height:12px;border-radius:50%;background:#ff5f57}.bar i:nth-child(2){background:#febc2e}.bar i:nth-child(3){background:#28c840}

@@ -1,9 +1,9 @@
 import { createServer } from 'node:http';
 import { readFile, stat } from 'node:fs/promises';
-import { watch } from 'node:fs';
-import { dirname, resolve, extname, relative, isAbsolute, basename } from 'node:path';
+import { watch, existsSync } from 'node:fs';
+import { dirname, resolve, extname, relative, isAbsolute, basename, join } from 'node:path';
 import { loadConfig, renderHtml } from './build.js';
-import { themes } from '../themes/index.js';
+import { listThemes } from './themes.js';
 import { esc } from './util.js';
 
 const TYPES = {
@@ -13,9 +13,9 @@ const TYPES = {
 };
 
 // Dev-only overlay: theme switcher + live reload over SSE.
-function devOverlay(current) {
-  const opts = Object.keys(themes)
-    .map((t) => `<a href="?theme=${t}"${t === current ? ' aria-current="true"' : ''}>${t}</a>`)
+function devOverlay(current, names) {
+  const opts = names
+    .map((t) => `<a href="?theme=${encodeURIComponent(t)}"${t === current ? ' aria-current="true"' : ''}>${esc(t)}</a>`)
     .join('');
   return `<div id="folio-dev"><span>theme</span>${opts}</div>
 <style>#folio-dev{position:fixed;left:50%;transform:translateX(-50%);bottom:14px;z-index:99;display:flex;gap:4px;align-items:center;padding:5px;border-radius:999px;background:rgba(17,17,17,.88);backdrop-filter:blur(10px);font:500 12.5px/1 ui-sans-serif,system-ui,sans-serif;box-shadow:0 8px 30px rgba(0,0,0,.25)}
@@ -51,9 +51,12 @@ export async function serve({ config = 'folio.json', port = 4321, theme } = {}) 
       const chosen = url.searchParams.get('theme') || theme;
       try {
         const raw = await loadConfig(configPath);
-        const { html, profile } = renderHtml(raw, { theme: chosen });
+        // The URL can only pick a listed theme by name, never an arbitrary file path.
+        const names = (await listThemes(base)).map((t) => t.name);
+        if (url.searchParams.has('theme') && !names.includes(chosen)) throw new Error(`Unknown theme "${chosen}". Available: ${names.join(', ')}`);
+        const { html, profile } = await renderHtml(raw, { theme: chosen, baseDir: base });
         res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' });
-        res.end(html.replace('</body>', `${devOverlay(profile.theme)}\n</body>`));
+        res.end(html.replace('</body>', `${devOverlay(profile.theme, names)}\n</body>`));
       } catch (e) {
         res.writeHead(500, { 'Content-Type': 'text/html; charset=utf-8' });
         res.end(errorPage(e.message));
@@ -86,6 +89,8 @@ export async function serve({ config = 'folio.json', port = 4321, theme } = {}) 
   watch(base, (_, name) => {
     if (!name || name === basename(configPath) || TYPES[extname(String(name)).toLowerCase()]) notify();
   });
+  const themeDir = join(base, 'themes');
+  if (existsSync(themeDir)) watch(themeDir, notify);
 
   await new Promise((ok, fail) => {
     server.once('error', fail);

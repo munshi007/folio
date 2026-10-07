@@ -1,14 +1,19 @@
 #!/usr/bin/env node
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';
-import { resolve } from 'node:path';
+import { resolve, dirname, join, relative } from 'node:path';
 import { build, loadConfig, FolioError } from '../src/build.js';
 import { validate } from '../src/schema.js';
 import { fetchGitHub, mergeGitHub } from '../src/github.js';
 import { serve } from '../src/serve.js';
 import { deploy } from '../src/deploy.js';
 import { themes } from '../themes/index.js';
+import { listThemes, loadTheme } from '../src/themes.js';
+import { checkTheme } from '../src/themecheck.js';
+import { shoot } from '../src/shot.js';
+
+const HELPER_NAMES = 'esc, safeUrl, attrUrl, inline, md, fmtDate, dateRange, hostOf, initials, icon, linkKind';
 
 const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -26,7 +31,13 @@ ${c.b('Usage')}
   folio build [--out dist] [--theme <name>]       render static site
   folio deploy [--yes]                            build + publish to GitHub Pages (gh-pages branch)
   folio validate                                  check folio.json
-  folio themes                                    list themes
+  folio themes                                    list built-in + your local themes
+
+${c.b('Design your own theme')}
+  folio theme new <name> [--from <theme>]         scaffold themes/<name>.js (from the starter or a built-in)
+  folio theme check <name>                        safety + quality checks (escaping, mobile, dark mode, a11y, fonts)
+  folio shot [--theme <name>] [--out folio-shots] full-page screenshots: desktop + mobile, light + dark
+            [--device desktop|mobile] [--scheme light|dark]
 
 ${c.b('Options')}
   --config <path>   folio.json location (default: ./folio.json)
@@ -148,6 +159,63 @@ async function cmdDeploy(args, config) {
   }
 }
 
+const NAME_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;
+
+async function cmdTheme(args, config) {
+  const sub = args._[1];
+  const base = dirname(config);
+  if (sub === 'new') {
+    const name = args._[2];
+    if (!name || !NAME_RE.test(name)) throw new FolioError('Usage: folio theme new <name>  (lowercase letters, digits, dashes)');
+    if (themes[name]) throw new FolioError(`"${name}" is a built-in theme name. Pick another.`);
+    const dest = join(base, 'themes', `${name}.js`);
+    if (existsSync(dest)) throw new FolioError(`${relative(process.cwd(), dest)} already exists.`);
+    const from = args.from || '_starter';
+    if (from !== '_starter' && !themes[from]) throw new FolioError(`--from must be a built-in theme: ${Object.keys(themes).join(', ')}`);
+    let src = await readFile(new URL(`../themes/${from}.js`, import.meta.url), 'utf8');
+    if (from === '_starter') {
+      src = src.replace("name: '__NAME__'", `name: '${name}'`);
+    } else {
+      // Built-ins import helpers from the package; a local copy gets the same helpers from render()'s second argument.
+      // Module-level bindings so helper functions outside render() see them too.
+      src = src
+        .replace(/^import \{([^}]+)\} from '\.\.\/src\/util\.js';\n/m, `// Helpers arrive as render()'s second argument (see themes/_starter.js for the list).\nlet ${HELPER_NAMES};\n`)
+        .replace(/export function render\(p\) \{/, `export function render(p, h) {\n  ({ ${HELPER_NAMES} } = h);`)
+        .replace(/name: '[^']+'/, `name: '${name}'`);
+    }
+    await mkdir(dirname(dest), { recursive: true });
+    await writeFile(dest, src);
+    console.log(`${c.g('✓')} created ${relative(process.cwd(), dest)}${from !== '_starter' ? c.dim(` (copy of ${from})`) : ''}`);
+    console.log(`  preview: ${c.b(`folio dev --theme ${name}`)}   check: ${c.b(`folio theme check ${name}`)}   screenshots: ${c.b(`folio shot --theme ${name}`)}`);
+    return;
+  }
+  if (sub === 'check') {
+    const name = args._[2] || (existsSync(config) ? (await loadConfig(config)).theme : null);
+    if (!name) throw new FolioError('Usage: folio theme check <name>');
+    const theme = await loadTheme(name, base);
+    const { errors, warnings } = checkTheme(theme);
+    for (const e of errors) console.log(`  ${c.r('✗')} ${e}`);
+    for (const w of warnings) console.log(`  ${c.y('!')} ${w}`);
+    if (errors.length) process.exitCode = 1;
+    console.log(errors.length ? `${c.r('✗')} ${name}: ${errors.length} error(s)` : `${c.g('✓')} ${name} passes${warnings.length ? c.dim(` with ${warnings.length} suggestion(s)`) : ' cleanly'}`);
+    return;
+  }
+  throw new FolioError('Usage: folio theme new <name> | folio theme check <name>');
+}
+
+async function cmdShot(args, config) {
+  const t0 = Date.now();
+  const { files, theme } = await shoot({
+    config,
+    theme: args.theme,
+    out: args.out || 'folio-shots',
+    devices: args.device ? [args.device] : undefined,
+    schemes: args.scheme ? [args.scheme] : undefined,
+  });
+  console.log(`${c.g('✓')} ${files.length} screenshot(s) of ${c.m(theme)} ${c.dim(`(${((Date.now() - t0) / 1000).toFixed(1)}s)`)}`);
+  for (const f of files) console.log(`  ${relative(process.cwd(), f.file)} ${c.dim(f.part ? `slice ${f.part}` : `${f.device} · ${f.scheme} · ${f.height}px${f.truncated ? ' · truncated' : ''}`)}`);
+}
+
 async function main() {
   const args = parseArgs(process.argv.slice(2));
   const cmd = args._[0];
@@ -171,8 +239,15 @@ async function main() {
     case 'deploy':
       return cmdDeploy(args, config);
     case 'themes':
-      for (const t of Object.values(themes)) console.log(`  ${c.m(t.meta.name.padEnd(10))} ${t.meta.description}`);
+      for (const t of await listThemes(dirname(config))) {
+        console.log(`  ${c.m(t.name.padEnd(12))} ${t.source === 'local' ? c.dim(`local · ${relative(process.cwd(), t.path)}`) : t.description}`);
+      }
       return;
+    case 'theme':
+      return cmdTheme(args, config);
+    case 'shot':
+    case 'screenshot':
+      return cmdShot(args, config);
     default:
       throw new FolioError(`Unknown command "${cmd}". Run folio --help.`);
   }

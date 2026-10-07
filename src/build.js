@@ -2,10 +2,10 @@ import { readFile, writeFile, mkdir, copyFile, rm, readdir } from 'node:fs/promi
 import { existsSync } from 'node:fs';
 import { dirname, resolve, join, relative, isAbsolute } from 'node:path';
 import { validate, normalize } from './schema.js';
-import { page } from './page.js';
-import { themes } from '../themes/index.js';
+import { loadTheme, renderWith } from './themes.js';
+import { FolioError } from './errors.js';
 
-export class FolioError extends Error {}
+export { FolioError };
 
 export async function loadConfig(configPath) {
   if (!existsSync(configPath)) {
@@ -26,14 +26,13 @@ function localAssets(p) {
   return [...new Set(paths.filter((u) => !/^[a-z][a-z0-9+.-]*:/i.test(u) && !u.startsWith('//')))];
 }
 
-export function renderHtml(raw, { theme } = {}) {
+export async function renderHtml(raw, { theme, baseDir = process.cwd() } = {}) {
   const { errors, warnings } = validate(raw);
   if (errors.length) throw new FolioError(`folio.json has problems:\n  - ${errors.join('\n  - ')}`);
   const p = normalize(raw);
   if (theme) p.theme = theme;
-  const t = themes[p.theme];
-  if (!t) throw new FolioError(`Unknown theme "${p.theme}". Available: ${Object.keys(themes).join(', ')}`);
-  return { html: page(p, t.render(p)), profile: p, warnings };
+  const t = await loadTheme(p.theme, baseDir);
+  return { html: renderWith(t, p), profile: p, warnings };
 }
 
 // The output folder is wiped on every build, so only ever wipe one folio created.
@@ -56,7 +55,7 @@ export async function build({ config = 'folio.json', out = 'dist', theme } = {})
   const configPath = resolve(config);
   const outDir = resolve(out);
   const raw = await loadConfig(configPath);
-  const { html, profile, warnings } = renderHtml(raw, { theme });
+  const { html, profile, warnings } = await renderHtml(raw, { theme, baseDir: dirname(configPath) });
 
   await assertSafeOutDir(outDir, dirname(configPath));
   await rm(outDir, { recursive: true, force: true });

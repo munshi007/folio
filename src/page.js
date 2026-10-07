@@ -40,8 +40,9 @@ ${image ? `<link rel="icon" href="${attrUrl(image)}">` : ''}
 ${fonts ? `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="${esc(fonts)}">` : ''}
 <script type="application/ld+json">${JSON.stringify(ld).replace(/</g, '\\u003c')}</script>
 <style>
-${p.accent ? `:root{--accent:${p.accent}}` : ''}
 ${css}
+${p.accent ? `/* folio.json "accent" comes last so it beats the theme's defaults in light and dark */
+:root{--accent:${p.accent}}@media (prefers-color-scheme:dark){:root{--accent:${p.accent}}}` : ''}
 .folio-badge{position:fixed;right:14px;bottom:14px;z-index:50;display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:999px;font:500 12px/1 ui-sans-serif,system-ui,sans-serif;text-decoration:none;color:#555;background:rgba(255,255,255,.85);border:1px solid rgba(0,0,0,.08);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);opacity:.75;transition:opacity .2s}
 .folio-badge:hover{opacity:1}
 @media (prefers-color-scheme:dark){.folio-badge{color:#bbb;background:rgba(20,20,20,.8);border-color:rgba(255,255,255,.1)}}

@@ -9,6 +9,9 @@ import { renderHtml, build, FolioError } from '../src/build.js';
 import { mergeGitHub } from '../src/github.js';
 import { parseGitHubRemote, pagesUrl } from '../src/deploy.js';
 import { themes } from '../themes/index.js';
+import { checkTheme } from '../src/themecheck.js';
+import { loadTheme, listThemes } from '../src/themes.js';
+import * as starter from '../themes/_starter.js';
 
 const example = JSON.parse(readFileSync(new URL('../examples/folio.example.json', import.meta.url), 'utf8'));
 
@@ -62,22 +65,22 @@ test('normalize: links object, email link, loose skills, auto-featured', () => {
 });
 
 for (const name of Object.keys(themes)) {
-  test(`theme ${name} renders the example and a minimal profile`, () => {
-    const { html } = renderHtml(example, { theme: name });
+  test(`theme ${name} renders the example and a minimal profile`, async () => {
+    const { html } = await renderHtml(example, { theme: name });
     assert.match(html, /<!doctype html>/);
     assert.match(html, /Maya Okafor/);
     assert.match(html, /quickdiff/);
     assert.match(html, /application\/ld\+json/);
     assert.match(html, /built with folio/);
 
-    const min = renderHtml({ name: 'Solo' }, { theme: name }).html;
+    const min = (await renderHtml({ name: 'Solo' }, { theme: name })).html;
     assert.match(min, /Solo/);
     assert.ok(!/undefined|null|NaN/.test(min.replace(/<script[\s\S]*?<\/script>/g, '')), 'no leaked undefined/null');
   });
 
-  test(`theme ${name} escapes hostile content`, () => {
+  test(`theme ${name} escapes hostile content`, async () => {
     const evil = '<script>alert(1)</script>';
-    const { html } = renderHtml(
+    const { html } = await renderHtml(
       {
         name: evil,
         headline: evil,
@@ -93,8 +96,8 @@ for (const name of Object.keys(themes)) {
   });
 }
 
-test('unknown theme is a clear error', () => {
-  assert.throws(() => renderHtml({ name: 'A' }, { theme: 'nope' }), FolioError);
+test('unknown theme is a clear error', async () => {
+  await assert.rejects(renderHtml({ name: 'A' }, { theme: 'nope' }), FolioError);
 });
 
 test('build copies local images and refuses to wipe foreign folders', async () => {
@@ -145,3 +148,40 @@ test('deploy URL helpers', () => {
   assert.equal(pagesUrl({ owner: 'Ada', repo: 'ada.github.io' }), 'https://ada.github.io/');
   assert.equal(pagesUrl({ owner: 'Ada', repo: 'site' }), 'https://ada.github.io/site/');
 });
+
+for (const [name, theme] of [...Object.entries(themes), ['_starter', { meta: { ...starter.meta, name: 'starter' }, render: starter.render }]]) {
+  test(`theme ${name} passes folio theme check with no errors or warnings`, () => {
+    assert.deepEqual(checkTheme(theme), { errors: [], warnings: [] });
+  });
+}
+
+test('theme check catches an unsafe theme', () => {
+  const bad = { meta: { name: 'bad', description: 'x' }, render: (p) => ({ css: '', body: `<h1>${p.name}</h1><a href="${p.links[0]?.url ?? ''}">x</a>` }) };
+  const { errors } = checkTheme(bad);
+  assert.ok(errors.some((e) => e.startsWith('unescaped')));
+  assert.ok(errors.some((e) => e.startsWith('unsafe URL')));
+});
+
+test('local themes load from <project>/themes, get helpers, and cannot escape the project', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-theme-'));
+  mkdirSync(join(dir, 'themes'));
+  writeFileSync(
+    join(dir, 'themes', 'mine.js'),
+    "export const meta = { name: 'mine', description: 'test' };\nexport function render(p, h) { return { css: '', body: `<h1>${h.esc(p.name)}</h1>` }; }\n",
+  );
+  const { html } = await renderHtml({ name: 'A <b>' }, { theme: 'mine', baseDir: dir });
+  assert.match(html, /<h1>A &lt;b&gt;<\/h1>/);
+  assert.ok((await listThemes(dir)).some((t) => t.name === 'mine' && t.source === 'local'));
+  await assert.rejects(loadTheme('../../etc/evil.js', dir), FolioError);
+  await assert.rejects(renderHtml({ name: 'A' }, { theme: 'missing', baseDir: dir }), FolioError);
+});
+
+for (const name of Object.keys(themes)) {
+  test(`theme ${name}: folio.json accent overrides the theme's default`, async () => {
+    const { html } = await renderHtml({ name: 'A', accent: '#ff0000' }, { theme: name });
+    const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+    const last = css.lastIndexOf('--accent:');
+    assert.ok(last > 0, 'theme should use --accent');
+    assert.equal(css.slice(last, last + 16), '--accent:#ff0000', 'user accent must be the last --accent declared');
+  });
+}

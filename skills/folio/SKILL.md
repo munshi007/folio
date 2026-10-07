@@ -47,6 +47,8 @@ Run `folio themes` to see options. Suggest one with a reason, matching the perso
 - `terminal` — systems, backend, infra, security, CLI authors.
 Set `"accent": "#hex"` if they have a brand color.
 
+**Want a site that looks like nobody else's?** Offer a custom theme and follow [DESIGN.md](DESIGN.md): brief, direction, `folio theme new`, then a check → `folio shot` → critique loop. Offer it when the content is solid, they're picky about design, or they say the built-ins feel generic.
+
 ### 5. Preview and iterate
 - Run `folio dev` in the background and give the user the URL (`http://localhost:4321`). The bottom bar switches themes live; `?theme=terminal` works too.
 - If you can take screenshots (browser tool / Playwright / headless Chrome), look at the page yourself at desktop and phone widths and fix anything awkward — overly long descriptions, a project with no description, an orphaned card — before showing it.
