@@ -1,3 +1,5 @@
+import { ordered } from './style.js';
+
 // Shared helpers for themes and the build. Everything that reaches HTML goes through esc() or md().
 
 const ENTITIES = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
@@ -102,4 +104,5 @@ export function linkKind(url) {
 }
 
 // Passed to every theme's render(profile, h) so themes outside this package need no imports.
-export const helpers = Object.freeze({ esc, safeUrl, attrUrl, inline, md, fmtDate, dateRange, hostOf, initials, icon, linkKind });
+export { ordered };
+export const helpers = Object.freeze({ esc, safeUrl, attrUrl, inline, md, fmtDate, dateRange, hostOf, initials, icon, linkKind, ordered });

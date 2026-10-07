@@ -185,3 +185,68 @@ for (const name of Object.keys(themes)) {
     assert.equal(css.slice(last, last + 16), '--accent:#ff0000', 'user accent must be the last --accent declared');
   });
 }
+
+// ---- style settings -------------------------------------------------------------------------
+import { applyMode, ordered as orderedFn, validateStyle } from '../src/style.js';
+import { serve, applyStyleChange } from '../src/serve.js';
+
+test('style.mode rewrites color-scheme blocks', () => {
+  const css = 'a{c:1}@media (prefers-color-scheme:dark){:root{--x:dark}.y{z:1}}@media (prefers-color-scheme: light){:root{--x:light}}b{c:2}';
+  assert.equal(applyMode(css, 'auto'), css);
+  assert.equal(applyMode(css, 'dark'), 'a{c:1}:root{--x:dark}.y{z:1}b{c:2}');
+  assert.equal(applyMode(css, 'light'), 'a{c:1}:root{--x:light}b{c:2}');
+});
+
+test('style validation and ordering', () => {
+  assert.deepEqual(validateStyle({ mode: 'dark', font: 'serif', sections: ['skills'], hide: ['awards'] }), []);
+  assert.equal(validateStyle({ mode: 'neon' }).length, 1);
+  assert.equal(validateStyle({ sections: ['work'] }).length, 1);
+  const items = [{ id: 'about' }, { id: 'projects', n: 1 }, { id: 'skills' }, { id: 'projects', n: 2 }];
+  assert.equal(orderedFn({ sections: null }, items), items);
+  assert.deepEqual(orderedFn({ sections: ['projects', 'skills', 'about'] }, items).map((x) => x.n ?? x.id), [1, 2, 'skills', 'about']);
+});
+
+for (const name of Object.keys(themes)) {
+  test(`theme ${name}: style.hide, style.mode and style.font apply`, async () => {
+    const { html } = await renderHtml({ ...example, style: { hide: ['experience'], mode: 'dark', font: 'mono' } }, { theme: name });
+    assert.ok(!html.includes('Ledgerline'), 'hidden section still rendered');
+    const css = html.match(/<style>([\s\S]*?)<\/style>/)[1];
+    assert.ok(!/prefers-color-scheme/.test(css), 'mode=dark should remove scheme media queries');
+    assert.match(html, /<meta name="color-scheme" content="dark">/);
+    assert.match(html, /family=JetBrains\+Mono/);
+  });
+}
+
+test('applyStyleChange only accepts known keys/values and keeps folio.json tidy', () => {
+  const raw = { name: 'A', theme: 'bento' };
+  assert.equal(applyStyleChange(raw, 'theme', 'blueprint', ['bento', 'blueprint']).theme, 'blueprint');
+  assert.deepEqual(applyStyleChange(raw, 'mode', 'dark', []).style, { mode: 'dark' });
+  assert.equal(applyStyleChange({ ...raw, style: { mode: 'dark' } }, 'mode', 'auto', []).style, undefined);
+  assert.deepEqual(applyStyleChange(raw, 'sections', ['skills', 'about'], []).style, { sections: ['skills', 'about'] });
+  assert.throws(() => applyStyleChange(raw, 'theme', '../evil', ['bento']));
+  assert.throws(() => applyStyleChange(raw, 'name', 'Mallory', []));
+  assert.throws(() => applyStyleChange(raw, 'hide', ['<script>'], []));
+  assert.equal(raw.style, undefined, 'input must not be mutated');
+});
+
+test('dev server style endpoint rejects cross-site and malformed writes', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-serve-'));
+  const cfg = join(dir, 'folio.json');
+  writeFileSync(cfg, JSON.stringify({ name: 'A', theme: 'bento' }));
+  const port = 4800 + Math.floor(Math.random() * 500);
+  const srv = await serve({ config: cfg, port });
+  const post = (headers, body) =>
+    fetch(`http://127.0.0.1:${port}/__folio/style`, { method: 'POST', headers, body: JSON.stringify(body) }).then((r) => r.status);
+  try {
+    const json = { 'Content-Type': 'application/json' };
+    assert.equal(await post(json, { key: 'mode', value: 'dark' }), 403, 'missing X-Folio header');
+    assert.equal(await post({ ...json, 'X-Folio': '1', Origin: 'https://evil.example' }, { key: 'mode', value: 'dark' }), 403, 'foreign origin');
+    assert.equal(await post({ 'Content-Type': 'text/plain', 'X-Folio': '1' }, { key: 'mode', value: 'dark' }), 403, 'non-JSON');
+    assert.equal(await post({ ...json, 'X-Folio': '1' }, { key: 'name', value: 'Mallory' }), 400, 'unknown key');
+    assert.equal(JSON.parse(readFileSync(cfg, 'utf8')).style, undefined, 'nothing written yet');
+    assert.equal(await post({ ...json, 'X-Folio': '1', Origin: `http://localhost:${port}` }, { key: 'mode', value: 'dark' }), 204);
+    assert.deepEqual(JSON.parse(readFileSync(cfg, 'utf8')).style, { mode: 'dark' });
+  } finally {
+    srv.close();
+  }
+});

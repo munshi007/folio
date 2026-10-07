@@ -1,5 +1,7 @@
 // folio.json shape, validation and normalization. Themes only ever see normalized profiles.
 
+import { validateStyle, normalizeStyle } from './style.js';
+
 export const SECTIONS = ['experience', 'projects', 'education', 'skills', 'awards', 'writing'];
 
 const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
@@ -32,6 +34,8 @@ export function validate(raw) {
   (Array.isArray(raw.education) ? raw.education : []).forEach((e, i) => {
     if (!isObj(e) || !str(e.school)) errors.push(`education[${i}].school: required`);
   });
+
+  errors.push(...validateStyle(raw.style));
 
   if (!str(raw.headline)) warnings.push('headline: missing — this is the first line people read');
   if (!str(raw.about)) warnings.push('about: missing');
@@ -125,6 +129,14 @@ export function normalize(raw) {
       venue: str(w.venue),
     })),
   };
+
+  // style.hide works on every theme: hidden sections are simply empty by the time the theme sees them.
+  p.style = normalizeStyle(raw.style);
+  p.sections = p.style.sections;
+  for (const id of p.style.hide) {
+    if (id === 'about') p.about = '';
+    else p[id] = [];
+  }
 
   if (p.email && !p.links.some((l) => l.url === `mailto:${p.email}`)) {
     p.links.push({ label: 'Email', url: `mailto:${p.email}` });

@@ -97,8 +97,16 @@ When the user says "I shipped X", "add my new job", "I won Y": edit the matching
   "skills": [{ "group": "Languages", "items": ["TypeScript", "Go"] }],
   "awards": [{ "title": "", "org": "", "date": "2025-09", "url": "" }],
   "writing": [{ "title": "", "url": "", "date": "2025-03", "venue": "" }],
-  "badge": true
+  "badge": true,
+  "style": {
+    "mode": "auto | light | dark",
+    "font": "theme | serif | sans | mono",
+    "sections": ["projects", "experience", "about", "skills", "education", "awards", "writing"],
+    "hide": ["awards"]
+  }
 }
 ```
+
+`style` works on every theme: `mode` forces light or dark, `font` swaps in a vetted pairing, `hide` removes sections, `sections` reorders them. Use it for quick requests ("make it dark", "projects first", "hide education") before reaching for a custom theme. The user can also click these in the `folio dev` control bar, which saves to `folio.json`.
 
 Dates: `YYYY`, `YYYY-MM`, or `present`. Every section is optional except `name`; empty sections are hidden.

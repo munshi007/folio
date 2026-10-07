@@ -63,7 +63,26 @@ npx folio-site deploy                          # publish to GitHub Pages
 | **terminal** | Your portfolio as a shell session, with `git log --career`. Great for systems, backend, infra and security folks. |
 | **blueprint** | An engineering drawing: drafting grid, title block, `FIG. 01` project labels, spec tables, and a stats row computed from your real data. Great for infra, data and ML. *Made by `folio design` itself.* |
 
-Switch anytime with `"theme"` in `folio.json`, `--theme`, or the bar at the bottom of `folio dev`. Set `"accent": "#hex"` for your brand color. Every theme handles light/dark mode, mobile, print, and `prefers-reduced-motion`.
+Every theme handles light/dark mode, mobile, print, and `prefers-reduced-motion`.
+
+### Tweak without code
+
+`folio dev` has a control bar at the bottom of the preview. Click to switch **theme**, force **light/dark**, swap the **font** (serif, sans, mono), and **reorder or hide sections**. Every click is saved to `folio.json`:
+
+```json
+{
+  "theme": "blueprint",
+  "accent": "#16a34a",
+  "style": {
+    "mode": "dark",
+    "font": "serif",
+    "sections": ["projects", "experience", "about"],
+    "hide": ["awards"]
+  }
+}
+```
+
+These work on every theme, including ones you design yourself. Want something bigger? Ask your agent; see [Design your own](#design-your-own).
 
 ## Design your own
 

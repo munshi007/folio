@@ -1,4 +1,4 @@
-import { esc, attrUrl, md, inline, dateRange, fmtDate, icon, linkKind, initials } from '../src/util.js';
+import { esc, attrUrl, md, inline, dateRange, fmtDate, icon, linkKind, initials, ordered } from '../src/util.js';
 
 export const meta = {
   name: 'bento',
@@ -138,17 +138,21 @@ export function render(p) {
       .map((l) => `<a href="${attrUrl(l.url)}" target="_blank" rel="me noopener" title="${esc(l.label)}" aria-label="${esc(l.label)}">${icon(linkKind(l.url), 22)}</a>`)
       .join('')}</nav></section>`);
   }
-  if (p.about) cards.push(`<section class="card s2"><p class="k">About</p><div class="about">${md(p.about)}</div></section>`);
+  // Section tiles are collected with ids so style.sections can reorder them (stable: featured stay before the rest).
+  const tiles = [];
+  const tile = (id, html) => tiles.push({ id, html });
+
+  if (p.about) tile('about', `<section class="card s2"><p class="k">About</p><div class="about">${md(p.about)}</div></section>`);
 
   const featured = p.projects.filter((x) => x.featured);
   const rest = p.projects.filter((x) => !x.featured);
-  featured.forEach((x, i) => cards.push(project(x, i)));
+  featured.forEach((x, i) => tile('projects', project(x, i)));
 
   if (p.experience.length) {
     // Long careers go full-width in two columns so one tall card can't leave holes in the grid;
     // roles past the fourth stay compact.
     const long = p.experience.length > 3;
-    cards.push(`<section class="card ${long ? 's4' : 's2'}"><p class="k">Experience</p><ul class="tl${long ? ' cols' : ''}">${p.experience
+    tile('experience', `<section class="card ${long ? 's4' : 's2'}"><p class="k">Experience</p><ul class="tl${long ? ' cols' : ''}">${p.experience
       .map(
         (e, i) => `<li><span class="dot"></span><div><h3>${esc(e.role)}</h3>
 ${e.org ? `<div class="org">${e.url ? `<a href="${attrUrl(e.url)}" target="_blank" rel="noopener">${esc(e.org)}</a>` : esc(e.org)}</div>` : ''}
@@ -159,28 +163,30 @@ ${i < 4 && e.highlights.length ? `<ul>${e.highlights.map((h) => `<li>${inline(h)
       .join('')}</ul></section>`);
   }
 
-  rest.forEach((x, i) => cards.push(project(x, i + featured.length)));
+  rest.forEach((x, i) => tile('projects', project(x, i + featured.length)));
 
   if (p.skills.length) {
-    cards.push(`<section class="card s2"><p class="k">Toolkit</p>${p.skills
+    tile('skills', `<section class="card s2"><p class="k">Toolkit</p>${p.skills
       .map((g) => `<div class="sg">${g.group ? `<h4>${esc(g.group)}</h4>` : ''}<div class="chips">${g.items.map((i) => `<span>${esc(i)}</span>`).join('')}</div></div>`)
       .join('')}</section>`);
   }
   if (p.education.length) {
-    cards.push(`<section class="card s2"><p class="k">Education</p>${p.education
+    tile('education', `<section class="card s2"><p class="k">Education</p>${p.education
       .map((e) => `<div class="edu"><h3>${esc(e.school)}</h3>${e.degree ? `<p>${esc(e.degree)}</p>` : ''}<p>${esc(dateRange(e.start, e.end))}</p>${e.details ? `<p>${inline(e.details)}</p>` : ''}</div>`)
       .join('')}</section>`);
   }
   if (p.awards.length) {
-    cards.push(`<section class="card s2"><p class="k">Recognition</p><div class="list">${p.awards
+    tile('awards', `<section class="card s2"><p class="k">Recognition</p><div class="list">${p.awards
       .map((a) => `<a ${a.url ? `href="${attrUrl(a.url)}" target="_blank" rel="noopener"` : ''}><span>${esc(a.title)}${a.org ? ` · <span style="color:var(--muted)">${esc(a.org)}</span>` : ''}</span><small>${esc(fmtDate(a.date))}</small></a>`)
       .join('')}</div></section>`);
   }
   if (p.writing.length) {
-    cards.push(`<section class="card s2"><p class="k">Writing</p><div class="list">${p.writing
+    tile('writing', `<section class="card s2"><p class="k">Writing</p><div class="list">${p.writing
       .map((w) => `<a href="${attrUrl(w.url)}" target="_blank" rel="noopener"><span>${esc(w.title)}</span><small>${esc(fmtDate(w.date))}</small></a>`)
       .join('')}</div></section>`);
   }
+
+  cards.push(...ordered(p, tiles).map((t) => t.html));
 
   const mail = p.links.find((l) => l.url.startsWith('mailto:'));
   const primary = mail ?? p.links[0];

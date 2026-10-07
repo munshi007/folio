@@ -99,6 +99,15 @@ export function checkTheme(theme) {
     const generic = families.filter((f) => GENERIC_FONTS.includes(f));
     if (generic.length) warnings.push(`generic font${generic.length > 1 ? 's' : ''}: ${generic.join(', ')} — pick something with character`);
 
+    // style.sections: put skills first and about last; a theme that honors it (via h.ordered) moves them.
+    const reordered = tryRender(theme, { ...EXAMPLE, style: { sections: ['skills', 'experience', 'projects', 'education', 'awards', 'about'] } }, 'reordered', errors);
+    if (reordered) {
+      const t = stripScripts(reordered).replace(/<head>[\s\S]*?<\/head>/, '');
+      const skill = t.indexOf(p.skills[0].items[0]);
+      const about = t.indexOf('third-year');
+      if (skill === -1 || about === -1 || skill > about) warnings.push('ignores style.sections order (sort your sections with h.ordered(p, sections))');
+    }
+
     const kb = Buffer.byteLength(full) / 1024;
     if (kb > 120) warnings.push(`page is ${kb.toFixed(0)} KB before images; keep it lean`);
   }

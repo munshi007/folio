@@ -1,4 +1,4 @@
-import { esc, attrUrl, md, inline, dateRange, fmtDate, icon, linkKind, hostOf } from '../src/util.js';
+import { esc, attrUrl, md, inline, dateRange, fmtDate, icon, linkKind, hostOf, ordered } from '../src/util.js';
 
 export const meta = {
   name: 'terminal',
@@ -114,14 +114,18 @@ ${p.location ? `<dt>location</dt><dd>${esc(p.location)}</dd>` : ''}
 ${p.links.map((l) => `<dt>${esc(l.label.toLowerCase())}</dt><dd><a href="${attrUrl(l.url)}" target="_blank" rel="me noopener">${icon(linkKind(l.url), 14)}${esc(l.url.replace(/^mailto:/, '').replace(/^https?:\/\/(www\.)?/, ''))}</a></dd>`).join('\n')}
 </dl>`);
 
-  if (p.about) parts.push(cmd('cat', 'about.md'), `<div class="out">${md(p.about)}</div>`);
+  // Sections are blocks so style.sections can reorder them.
+  const blocks = [];
+  const block = (id, ...html) => blocks.push({ id, html: html.join('\n') });
+
+  if (p.about) block('about', cmd('cat', 'about.md'), `<div class="out">${md(p.about)}</div>`);
 
   if (p.projects.length) {
-    parts.push(cmd('ls -l', '~/projects'), `<div class="ls">${p.projects.map(project).join('\n')}</div>`);
+    block('projects', cmd('ls -l', '~/projects'), `<div class="ls">${p.projects.map(project).join('\n')}</div>`);
   }
 
   if (p.experience.length) {
-    parts.push(
+    block('experience',
       cmd('git log', '--career'),
       `<div class="log">${p.experience
         .map(
@@ -135,7 +139,7 @@ ${e.highlights.length ? `<ul>${e.highlights.map((h) => `<li>${inline(h)}</li>`).
   }
 
   if (p.education.length) {
-    parts.push(
+    block('education',
       cmd('cat', 'education.log'),
       `<div class="log">${p.education
         .map(
@@ -145,10 +149,10 @@ ${e.highlights.length ? `<ul>${e.highlights.map((h) => `<li>${inline(h)}</li>`).
     );
   }
 
-  if (p.skills.length) parts.push(cmd('cat', 'stack.json'), skillsJson(p.skills));
+  if (p.skills.length) block('skills', cmd('cat', 'stack.json'), skillsJson(p.skills));
 
   if (p.awards.length) {
-    parts.push(
+    block('awards',
       cmd('grep -r', '"award" ~/'),
       `<div class="log">${p.awards
         .map((a) => `<div class="c"><div class="h">${esc(fmtDate(a.date))}</div><div><span class="r">${a.url ? `<a href="${attrUrl(a.url)}" target="_blank" rel="noopener">${esc(a.title)}</a>` : esc(a.title)}</span>${a.org ? ` <span class="o">${esc(a.org)}</span>` : ''}</div></div>`)
@@ -157,13 +161,15 @@ ${e.highlights.length ? `<ul>${e.highlights.map((h) => `<li>${inline(h)}</li>`).
   }
 
   if (p.writing.length) {
-    parts.push(
+    block('writing',
       cmd('ls', '~/writing'),
       `<div class="ls">${p.writing
         .map((w) => `<a href="${attrUrl(w.url)}" target="_blank" rel="noopener"><div class="perm">${esc(fmtDate(w.date)) || '-rw-r--r--'}</div><div><div class="ds">${esc(w.title)}</div><div class="tg">${esc(w.venue || hostOf(w.url))}</div></div></a>`)
         .join('\n')}</div>`,
     );
   }
+
+  parts.push(...ordered(p, blocks).map((b) => b.html));
 
   const mail = p.links.find((l) => l.url.startsWith('mailto:'));
   if (mail) {

@@ -183,7 +183,7 @@ ${specs ? `<div class="specs">${specs}</div>` : ''}
 </${tag}>`;
     };
     // Keep the 2-column grid even: a lone featured card pulls the first small one up beside it.
-    sec('work', 'Figures', `<div class="figs">${featured.map((x) => card(x, false)).join('')}${rest.map((x) => card(x, true)).join('')}</div>`);
+    sec('projects', 'Figures', `<div class="figs">${featured.map((x) => card(x, false)).join('')}${rest.map((x) => card(x, true)).join('')}</div>`);
   }
 
   if (p.experience.length) {
@@ -246,7 +246,8 @@ ${e.highlights.length ? `<ul>${e.highlights.map((t) => `<li>${h.inline(t)}</li>`
     );
   }
 
-  const nav = sections.filter((s) => ['work', 'experience', 'skills'].includes(s.id));
+  const sorted = h.ordered(p, sections);
+  const nav = sorted.filter((s) => ['projects', 'experience', 'skills'].includes(s.id));
 
   const body = `<div class="sheet">
 <div class="strip"><span class="label">Portfolio · Sheet 01 · Rev ${h.esc(rev)}</span><nav>${nav.map((s) => `<a class="label" href="#${s.id}">${h.esc(s.title)}</a>`).join('')}${mail ? `<a class="label" href="#contact">Contact</a>` : ''}</nav></div>
@@ -255,7 +256,7 @@ ${e.highlights.length ? `<ul>${e.highlights.map((t) => `<li>${h.inline(t)}</li>`
 <h1>${h.esc(p.name)}</h1>
 ${p.headline ? `<div class="dim">Scope</div><p class="hl">${h.inline(p.headline)}</p>` : ''}
 </div>${dims.length ? `<div class="dims">${dims.map(([v, l]) => `<div><b>${h.esc(v)}</b><span class="label">${h.esc(l)}</span></div>`).join('')}</div>` : ''}</div><aside class="block">${blockCells.join('')}</aside></header>
-${sections
+${sorted
   .map((s, i) => `<section id="${s.id}"><div class="sec-head"><span class="n">${pad(i + 1)}</span><h2>${h.esc(s.title)}</h2><span class="rule"></span></div>${s.html}</section>`)
   .join('\n')}
 <footer id="contact"><div><div class="label">Correspondence</div><h2>${mail ? `<a href="${h.attrUrl(mail.url)}">${h.esc(mail.url.slice(7))}</a>` : h.esc(p.name)}</h2></div>

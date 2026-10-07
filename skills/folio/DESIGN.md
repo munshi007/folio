@@ -44,6 +44,7 @@ Hard rules (the checker enforces most):
 - No external `<script src>`. Small inline JS for progressive enhancement only, and the page must work without it.
 - At most 2 font families, loaded through `fonts`. No icon fonts; use `h.icon()` or inline SVG.
 - Must handle both color schemes, phones (`@media (max-width: …)`), `prefers-reduced-motion`, and `:focus-visible`.
+- Honor `style.sections`: give each section an id (about, projects, experience, education, skills, awards, writing) and sort with `h.ordered(p, sections)`. `folio theme check` warns if you don't. `style.mode`, `style.font` and `style.hide` work automatically.
 - Handle content extremes: a 40-character name, no avatar, no projects, 10 jobs, an about with 3 paragraphs.
 - Fill empty space with *their* facts, never filler: e.g. derived numbers (years since first role, project count, total stars) computed from `p`, not typed in.
 - Effects inspired by Magic UI, Aceternity or React Bits are welcome, rebuilt in plain CSS/JS. Never copy their source.

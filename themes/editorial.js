@@ -1,4 +1,4 @@
-import { esc, attrUrl, md, inline, dateRange, fmtDate, icon, linkKind, hostOf } from '../src/util.js';
+import { esc, attrUrl, md, inline, dateRange, fmtDate, icon, linkKind, hostOf, ordered } from '../src/util.js';
 
 export const meta = {
   name: 'editorial',
@@ -135,7 +135,7 @@ export function render(p) {
     const featured = p.projects.filter((x) => x.featured);
     const rest = p.projects.filter((x) => !x.featured && (x.url || x.repo));
     add(
-      'work',
+      'projects',
       'Selected work',
       `${featured.map(project).join('\n')}
 ${rest.length ? `<div class="more reveal"><h4>More projects</h4>${rest.map(moreProject).join('')}</div>` : ''}`,
@@ -205,7 +205,8 @@ ${e.highlights.length ? `<ul>${e.highlights.map((h) => `<li>${inline(h)}</li>`).
     );
   }
 
-  const navItems = sections.filter((s) => ['work', 'experience', 'writing'].includes(s.id));
+  const sorted = ordered(p, sections);
+  const navItems = sorted.filter((s) => ['projects', 'experience', 'writing'].includes(s.id));
   const mail = p.links.find((l) => l.url.startsWith('mailto:'));
   const year = new Date().getFullYear();
 
@@ -219,7 +220,7 @@ ${p.headline ? `<p class="headline">${inline(p.headline)}</p>` : ''}
 </div>${p.avatar ? `<img class="avatar" src="${attrUrl(p.avatar)}" alt="${esc(p.name)}">` : ''}</div>
 <div class="meta-row">${p.location ? `<span>${esc(p.location)}</span>` : ''}${links(p)}</div>
 </header>
-${sections
+${sorted
   .map((s, i) => `<section class="sec" id="${s.id}"><div class="label"><b>${String(i + 1).padStart(2, '0')}</b>${esc(s.label)}</div><div>${s.html}</div></section>`)
   .join('\n')}
 <footer class="contact" id="contact">

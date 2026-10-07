@@ -58,10 +58,12 @@ footer{margin-top:120px;font-size:14px;color:var(--muted)}
   const link = (url, label) => `<a href="${h.attrUrl(url)}" target="_blank" rel="noopener">${label}</a>`;
   const list = (items) => (items.length ? `<ul>${items.map((x) => `<li>${h.inline(x)}</li>`).join('')}</ul>` : '');
   const tags = (items) => (items.length ? `<div class="tags">${items.map((t) => `<span>${h.esc(t)}</span>`).join('')}</div>` : '');
-  const section = (id, title, html) => `<section id="${id}"><h2>${h.esc(title)}</h2>${html}</section>`;
+  const section = (id, title, html) => ({ id, html: `<section id="${id}"><h2>${h.esc(title)}</h2>${html}</section>` });
 
-  // ---- Sections. Reorder, merge or restyle freely; just keep every field escaped. ----------
+  // ---- Sections. Restyle freely; keep every field escaped. Ids: about, projects, experience,
+  // education, skills, awards, writing. h.ordered() applies the user's style.sections order. ---
   const parts = [];
+  const blocks = [];
 
   parts.push(`<header class="hero">
 ${p.status ? `<div class="status">${h.esc(p.status)}</div>` : ''}
@@ -72,12 +74,12 @@ ${p.headline ? `<p class="hl">${h.inline(p.headline)}</p>` : ''}
     .join('')}</nav>
 </header>`);
 
-  if (p.about) parts.push(section('about', 'About', `<div class="about">${h.md(p.about)}</div>`));
+  if (p.about) blocks.push(section('about', 'About', `<div class="about">${h.md(p.about)}</div>`));
 
   if (p.projects.length) {
-    parts.push(
+    blocks.push(
       section(
-        'work',
+        'projects',
         'Work',
         p.projects
           .map((x) => {
@@ -97,7 +99,7 @@ ${x.featured ? list(x.highlights) : ''}${tags(x.tags)}
   }
 
   if (p.experience.length) {
-    parts.push(
+    blocks.push(
       section(
         'experience',
         'Experience',
@@ -115,7 +117,7 @@ ${e.summary ? `<p>${h.inline(e.summary)}</p>` : ''}${list(e.highlights)}
   }
 
   if (p.education.length) {
-    parts.push(
+    blocks.push(
       section(
         'education',
         'Education',
@@ -131,7 +133,7 @@ ${e.details ? `<p>${h.inline(e.details)}</p>` : ''}</div>`,
   }
 
   if (p.skills.length) {
-    parts.push(
+    blocks.push(
       section(
         'skills',
         'Skills',
@@ -141,7 +143,7 @@ ${e.details ? `<p>${h.inline(e.details)}</p>` : ''}</div>`,
   }
 
   if (p.awards.length) {
-    parts.push(
+    blocks.push(
       section(
         'awards',
         'Awards',
@@ -153,7 +155,7 @@ ${e.details ? `<p>${h.inline(e.details)}</p>` : ''}</div>`,
   }
 
   if (p.writing.length) {
-    parts.push(
+    blocks.push(
       section(
         'writing',
         'Writing',
@@ -163,6 +165,8 @@ ${e.details ? `<p>${h.inline(e.details)}</p>` : ''}</div>`,
       ),
     );
   }
+
+  parts.push(...h.ordered(p, blocks).map((b) => b.html));
 
   const mail = p.links.find((l) => l.url.startsWith('mailto:'));
   parts.push(`<footer>${mail ? `<a href="${h.attrUrl(mail.url)}">${h.esc(mail.url.slice(7))}</a> · ` : ''}© ${new Date().getFullYear()} ${h.esc(p.name)}</footer>`);
