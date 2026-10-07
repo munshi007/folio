@@ -357,3 +357,16 @@ test('generate --like copies the parent, marks pending, and the gallery shows th
   await assert.rejects(createRun(dir, normalize(example), { count: 2, like: 'nope' }));
   await assert.rejects(createRun(dir, normalize(example), { count: 2, like: 'blueprint', keep: 'everything' }));
 });
+
+test('theme check flags wording hardcoded into a theme instead of coming from folio.json', () => {
+  const baked = {
+    meta: { name: 'baked', description: 'x' },
+    render: (p, h) => ({ css: '', body: `<h1>${h.esc(p.name)}</h1><p>7 yrs shipping data systems</p><p>${h.esc(p.headline)}</p>` }),
+  };
+  assert.ok(checkTheme(baked).warnings.some((w) => w.includes('hardcoded wording') && w.includes('data systems')));
+  const derived = {
+    meta: { name: 'derived', description: 'x' },
+    render: (p, h) => ({ css: '', body: `<h1>${h.esc(p.name)}</h1><p>${p.experience.length} roles since first role</p>` }),
+  };
+  assert.ok(!checkTheme(derived).warnings.some((w) => w.includes('hardcoded wording')));
+});

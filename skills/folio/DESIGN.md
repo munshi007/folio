@@ -41,6 +41,7 @@ These are starting points, not templates. If they name a site they love, extract
 
 Hard rules (the checker enforces most):
 - Every profile value goes through `h.esc`, `h.inline`, `h.md` or `h.attrUrl`. Never interpolate raw.
+- Never hardcode anything about the person: no field, role or claim typed into the theme ("7 yrs shipping data systems" is wrong for a student). Words about them come from `folio.json` or are computed from it. `folio theme check` renders your theme for two very different people and warns about any claim that shows up for both.
 - No external `<script src>`. Small inline JS for progressive enhancement only, and the page must work without it.
 - At most 2 font families, loaded through `fonts`. No icon fonts; use `h.icon()` or inline SVG.
 - Must handle both color schemes, phones (`@media (max-width: …)`), `prefers-reduced-motion`, and `:focus-visible`.

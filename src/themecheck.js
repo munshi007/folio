@@ -24,6 +24,36 @@ const HOSTILE = {
   writing: [{ title: EVIL, url: 'javascript:alert(1)', venue: EVIL }],
 };
 
+// A second, deliberately different person: no tech or domain vocabulary anywhere. Any claim-like sentence that
+// shows up for both Maya and Lena can't be coming from either profile, so the theme hardcoded it.
+const CONTRAST = {
+  name: 'Lena Park',
+  headline: 'Illustrator and picture-book author',
+  location: 'Lisbon, Portugal',
+  about: 'I draw small animals having big feelings. My books have been translated into nine languages.',
+  links: [{ label: 'Instagram', url: 'https://instagram.com/example' }],
+  projects: [
+    { name: 'The Quiet Fox', description: 'A picture book about a fox who learns to listen.', url: 'https://example.com/fox', tags: ['Watercolor'], year: '2024', featured: true, highlights: ['Shortlisted for a regional book prize'] },
+    { name: 'Harbor Sketches', description: 'A year of morning drawings at the river.', url: 'https://example.com/harbor', tags: ['Ink'], year: '2023' },
+  ],
+  experience: [{ role: 'Illustrator', org: 'Paper Boat Press', start: '2021', end: 'present', highlights: ['Illustrated six picture books'] }],
+  education: [{ school: 'Lisbon School of Fine Arts', degree: 'BA, Illustration', start: '2016', end: '2020' }],
+  skills: [{ group: 'Media', items: ['Watercolor', 'Ink', 'Gouache'] }],
+  awards: [{ title: 'Regional Picture Book Prize', org: 'Shortlist', date: '2025' }],
+};
+
+// Words that make a sentence a claim about the person (their field, role or work).
+const CLAIM_WORDS = /\b(data|systems?|pipelines?|engineer(s|ing)?|developers?|software|code|coding|programm(er|ing)|ml|ai|llms?|agents?|machine learning|infra(structure)?|backend|front-?end|full-?stack|designers?|students?|research(ers?)?|startups?|products?|apis?|cloud|devops|analytics)\b/i;
+
+function visibleText(html) {
+  return stripScripts(html)
+    .replace(/<style[\s\S]*?<\/style>/gi, '')
+    .replace(/<head>[\s\S]*?<\/head>/i, '')
+    .split(/<[^>]+>/)
+    .map((t) => t.replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim())
+    .filter(Boolean);
+}
+
 // Fonts every AI-generated site reaches for. Not wrong, just forgettable.
 export const GENERIC_FONTS = ['Inter', 'Roboto', 'Open Sans', 'Arial', 'Poppins', 'Montserrat', 'Space Grotesk', 'Lato'];
 
@@ -49,6 +79,7 @@ export function checkTheme(theme) {
   const full = tryRender(theme, EXAMPLE, 'example', errors);
   const minimal = tryRender(theme, { name: 'Solo Person' }, 'minimal (name only)', errors);
   const hostile = tryRender(theme, HOSTILE, 'hostile', errors);
+  const contrast = tryRender(theme, CONTRAST, 'contrast', errors);
 
   if (hostile) {
     const h = stripScripts(hostile.replace(/<script type="application\/ld\+json">[\s\S]*?<\/script>/, ''));
@@ -106,6 +137,14 @@ export function checkTheme(theme) {
       const skill = t.indexOf(p.skills[0].items[0]);
       const about = t.indexOf('third-year');
       if (skill === -1 || about === -1 || skill > about) warnings.push('ignores style.sections order (sort your sections with h.ordered(p, sections))');
+    }
+
+    // Hardcoded claims: same claim-like text for two very different people.
+    if (contrast) {
+      const norm = (t) => t.replace(/\d+/g, '#').toLowerCase();
+      const theirs = new Set(visibleText(contrast).map(norm));
+      const baked = [...new Set(visibleText(full).map(norm))].filter((t) => theirs.has(t) && t.split(' ').length >= 2 && CLAIM_WORDS.test(t));
+      for (const t of baked.slice(0, 5)) warnings.push(`hardcoded wording that isn't from folio.json: "${t}". It shows for every person; derive it from the profile or remove it`);
     }
 
     const kb = Buffer.byteLength(full) / 1024;

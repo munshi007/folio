@@ -206,7 +206,7 @@ Everything not under "Keep" is open. Put your version next to the original at th
 
 ## Do this
 1. Edit \`themes/${name}.js\` (currently a copy of ${b.parent}). Keep \`meta.name = '${name}'\` and rewrite \`meta.description\` in one line: what this variation is.
-2. Same rules as always: every profile value through \`h.esc\` / \`h.inline\` / \`h.md\` / \`h.attrUrl\`; no external scripts; phones, dark and light, reduced motion, focus styles; \`h.ordered(p, sections)\`; works with JS off.
+2. Same rules as always: nothing about the person hardcoded (their field, role or claims): only what's in folio.json or computed from it; every profile value through \`h.esc\` / \`h.inline\` / \`h.md\` / \`h.attrUrl\`; no external scripts; phones, dark and light, reduced motion, focus styles; \`h.ordered(p, sections)\`; works with JS off.
 3. \`${cli} theme check ${name}\`: **0 errors required.**
 4. \`${cli} shot --theme ${name} --scheme light --pure\`, then look at the \`-part1\` screens for desktop and mobile. Any \`page script error\` line means broken JS: fix it.
 5. At most one more fix round. Reply with the theme name and one sentence on what this variation is.
@@ -267,7 +267,7 @@ ${contentShape(p)}
 
 ## Do this
 1. Edit \`themes/${name}.js\`. It already renders every section safely (it's the starter). Rewrite it completely to match the brief. Keep \`meta.name = '${name}'\` and write a one-line \`meta.description\` of the look.
-2. Rules: every profile value goes through \`h.esc\` / \`h.inline\` / \`h.md\` / \`h.attrUrl\`; no external \`<script src>\`; at most 2 font families; handle phones, dark *and* light, \`prefers-reduced-motion\`, \`:focus-visible\`; sort sections with \`h.ordered(p, sections)\`. The page must work with JS off.
+2. Rules: never hardcode anything about the person (their field, role or claims like "shipping data systems"): every word about them comes from folio.json or is computed from it, and the theme must stay true for a student, an illustrator or a CTO. Every profile value goes through \`h.esc\` / \`h.inline\` / \`h.md\` / \`h.attrUrl\`; no external \`<script src>\`; at most 2 font families; handle phones, dark *and* light, \`prefers-reduced-motion\`, \`:focus-visible\`; sort sections with \`h.ordered(p, sections)\`. The page must work with JS off.
 3. \`${cli} theme check ${name}\`: **0 errors required.**
 4. \`${cli} shot --theme ${name} --scheme light --pure\`, then look at the \`-part1\` and \`-part2\` screens (desktop and mobile); each is exactly one real screen. Any \`page script error\` line means your JS is broken: fix it. Fix what looks off: the 5-second read, orphan gaps, cramped phones, generic look.
 5. One more check → shot round if anything scored below 4/5. Then stop; don't polish forever.
