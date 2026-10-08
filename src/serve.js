@@ -7,6 +7,9 @@ import { listThemes } from './themes.js';
 import { esc } from './util.js';
 import { SECTION_IDS, MODES, FONTS } from './style.js';
 import { galleryData, galleryPage } from './gallery.js';
+import { handleApi, localHost } from './api.js';
+import { studioPage } from './studio.js';
+import { openStore } from './store.js';
 import { writeFile } from 'node:fs/promises';
 
 // Changes every time the server starts. Pages compare it on (re)connect and reload when it differs,
@@ -166,8 +169,22 @@ export async function serve({ config = 'folio.json', port = 4321, theme } = {}) 
   const base = dirname(configPath);
   const clients = new Set();
 
+  const store = openStore(base);
+
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://localhost');
+
+    // Everything here is for the person at this computer: refuse any other Host (blocks DNS rebinding).
+    if (!localHost(req)) {
+      res.writeHead(403, { 'Content-Type': 'text/plain' }).end('forbidden host');
+      return;
+    }
+    if (await handleApi(req, res, url, { store, configPath, base, port })) return;
+    if (url.pathname === '/studio') {
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(studioPage({ boot: BOOT }));
+      return;
+    }
 
     if (url.pathname === '/__folio/events') {
       res.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });

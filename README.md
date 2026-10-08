@@ -60,8 +60,12 @@ The agent reads what you already have (resume PDF, GitHub, LinkedIn export, a fe
 
 Directions are weighted to who you are, plus at least one wildcard. Your agent designs them in parallel. Before a design counts as done it must pass `folio theme check` (escaping, unsafe links, phones, dark mode, focus styles, reduced motion) and its designer looks at real screenshots of it.
 
-### 3. The gallery
-`folio dev` → **http://localhost:4321/__folio/gallery**. Every design from every round, live, with a phone preview on hover. Designs appear as they land.
+### 3. Folio Studio
+`folio studio` opens **Studio** in your browser: your Library of every design from every round, each a live preview. Designs appear as they land. Nothing is ever deleted:
+
+- **Every change is a version.** Edits from Studio, your agent or your own editor are all captured; open any design to see its history, preview an old version and restore it (restoring adds a new version, so nothing is lost).
+- **Archive, don't delete.** Archived designs hide from view and come back with one click. Star favorites.
+- **Family tree.** Variations show which design they branched from.
 
 - **Make this my site:** sets it in `folio.json` and opens your site.
 - **More like this:** asks what you like about it (vibe, colors, typography, layout, signature moment), keeps exactly that, and gets three siblings that each change two big things. They show up next to the original, and you can repeat on the winner until it's yours.
@@ -119,7 +123,8 @@ For a quick start without generating, four hand-tuned themes ship with folio: **
 | `folio generate [--count 6] [--seed n]` | Brief N different designers for your agent; watch them land in the gallery |
 | `folio generate --like <design> [--keep vibe\|colors\|type\|layout\|signature]` | "More like this": siblings that keep what you liked and change two big things each |
 | `folio pick <design> [--as <name>]` | Keep a generated design under a proper name and set it in `folio.json` |
-| `folio dev` | Live preview, control bar, and the gallery at `/__folio/gallery` |
+| `folio studio` | Open Folio Studio: the Library, design history, restore, favorites, archive |
+| `folio dev` | The same local server without opening a browser (Studio at `/studio`, your site at `/`) |
 | `folio build [--out dist]` | Render the static site |
 | `folio deploy` | Build and publish to GitHub Pages (asks first) |
 | `folio validate` | Check `folio.json` and get content suggestions |

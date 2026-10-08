@@ -10,11 +10,13 @@ folio generate --count 6          # 4–8 is the sweet spot; --seed N reproduces
 
 This writes N briefs to `.folio/gen/<run>/brief-<n>.md` and N theme files `themes/g<run>-<n>-<direction>.js`. Each brief combines a design direction, layout, motion level, palette strategy, type pairing and a signature interaction, weighted toward the person but with deliberate wildcards. Every theme file already renders (as the plain starter) and is marked `PENDING` until designed.
 
-Then start the preview in the background and give the user the gallery link right away. Designs appear live as they land:
+Then start Studio in the background and give the user the link right away. Designs appear live as they land:
 
 ```bash
-folio dev            # → http://localhost:4321/__folio/gallery
+folio dev            # → http://localhost:4321/studio
 ```
+
+Studio keeps every design and version, so don't delete theme files to "clean up": the user can archive in Studio. Edits you make to a theme file are captured as new versions automatically.
 
 ## 2. Design every brief
 

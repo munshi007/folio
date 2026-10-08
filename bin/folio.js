@@ -15,6 +15,9 @@ import { shoot } from '../src/shot.js';
 import { createRun, readRun, latestRun, isPending } from '../src/generate.js';
 import { normalize } from '../src/schema.js';
 import { unlink } from 'node:fs/promises';
+import { execFile } from 'node:child_process';
+import { openStore } from '../src/store.js';
+import { recordPublish } from '../src/library.js';
 
 const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -28,7 +31,8 @@ ${c.m('✦ folio')} ${c.dim(`v${pkg.version}`)} — six designers, one you: resu
 ${c.b('Usage')}
   folio init [--github <user>] [--theme <name>]   create folio.json (optionally from GitHub)
   folio github <user> [--limit 6]                 pull profile + top repos into folio.json
-  folio dev [--port 4321] [--theme <name>]        live preview with theme switcher
+  folio studio [--port 4321]                      open Folio Studio: every design, version and round
+  folio dev [--port 4321] [--theme <name>]        same server, without opening the browser
   folio build [--out dist] [--theme <name>]       render static site
   folio deploy [--yes]                            build + publish to GitHub Pages (gh-pages branch)
   folio validate                                  check folio.json
@@ -128,7 +132,12 @@ async function cmdBuild(args, config) {
 async function cmdDev(args, config) {
   const port = Number(args.port) || 4321;
   const { url } = await serve({ config, port, theme: args.theme });
-  console.log(`${c.m('✦ folio')} preview at ${c.b(url)}\n  ${c.dim('editing folio.json reloads the page · switch themes from the bar at the bottom · ctrl+c to stop')}`);
+  console.log(`${c.m('✦ folio')} studio at ${c.b(`${url}/studio`)}  ·  your site at ${c.b(url)}\n  ${c.dim('every design, version and round is in Studio · edits reload live · ctrl+c to stop')}`);
+  if (args.open) {
+    // Best effort: open Studio in the default browser.
+    const opener = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'explorer' : 'xdg-open';
+    execFile(opener, [`${url}/studio`], () => {});
+  }
   if (existsSync(config)) printWarnings(validate(await loadConfig(config)).warnings);
 }
 
@@ -160,7 +169,9 @@ async function cmdDeploy(args, config) {
     }
   }
   const { url, pagesEnabled } = await deploy({ outDir });
-  console.log(`${c.g('✓')} pushed to gh-pages`);
+  const raw = await loadConfig(config);
+  await recordPublish(openStore(dirname(config)), { design: raw.theme, host: 'github-pages', url });
+  console.log(`${c.g('✓')} pushed to gh-pages ${c.dim('(recorded in Studio → publish history)')}`);
   if (url) {
     console.log(`  live in ~1 min at ${c.b(url)}`);
     if (!pagesEnabled) console.log(c.dim('  if it 404s: repo Settings → Pages → Source: "Deploy from a branch", branch gh-pages'));
@@ -280,6 +291,8 @@ async function main() {
     case 'dev':
     case 'preview':
       return cmdDev(args, config);
+    case 'studio':
+      return cmdDev({ ...args, open: true }, config);
     case 'validate':
       return cmdValidate(config);
     case 'deploy':

@@ -73,8 +73,8 @@ export function galleryPage(data, { name, current }) {
     const src = `/?theme=${encodeURIComponent(it.theme)}&embed=1`;
     return `<article class="card${it.pending ? ' is-pending' : ''}${it.original ? ' is-original' : ''}${it.theme === current ? ' is-current' : ''}" style="--d:${i * 70}ms">
 <div class="stage">
-  <div class="desk"><iframe src="${src}" loading="lazy" tabindex="-1" title="${esc(it.theme)} desktop"></iframe></div>
-  <div class="phone"><iframe src="${src}" loading="lazy" tabindex="-1" title="${esc(it.theme)} phone"></iframe></div>
+  <div class="desk"><iframe src="${src}" sandbox="allow-scripts" loading="lazy" tabindex="-1" title="${esc(it.theme)} desktop"></iframe></div>
+  <div class="phone"><iframe src="${src}" sandbox="allow-scripts" loading="lazy" tabindex="-1" title="${esc(it.theme)} phone"></iframe></div>
   ${it.pending ? '<div class="veil"><div class="spin"></div><p>an agent is designing this one</p></div>' : ''}
 </div>
 <div class="info">

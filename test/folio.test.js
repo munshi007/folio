@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, mkdtempSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, mkdtempSync, writeFileSync, mkdirSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { esc, safeUrl, inline, md, fmtDate, dateRange } from '../src/util.js';
@@ -369,4 +369,89 @@ test('theme check flags wording hardcoded into a theme instead of coming from fo
     render: (p, h) => ({ css: '', body: `<h1>${h.esc(p.name)}</h1><p>${p.experience.length} roles since first role</p>` }),
   };
   assert.ok(!checkTheme(derived).warnings.some((w) => w.includes('hardcoded wording')));
+});
+
+// ---- store + library + api ------------------------------------------------------------------
+import { openStore } from '../src/store.js';
+import { request as httpRequest } from 'node:http';
+import { syncLibrary, getLibrary, getDesign, restoreVersion, setFlag } from '../src/library.js';
+
+test('store refuses keys that escape its folders', async () => {
+  const s = openStore(mkdtempSync(join(tmpdir(), 'folio-store-')));
+  for (const bad of ['../x', 'a/../../b', '/etc/passwd', '', 'a//b', '.']) {
+    await assert.rejects(s.data.writeText(bad, 'x'), /invalid store key|escapes/);
+  }
+  await s.data.writeJSON('a/b.json', { ok: 1 });
+  assert.deepEqual(await s.data.readJSON('a/b.json'), { ok: 1 });
+});
+
+test('library versions every change, restores without losing history, never deletes', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-lib-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  mkdirSync(join(dir, 'themes'));
+  const src = (n) => `export const meta = { name: 'mine', description: 'take ${n}' };\nexport function render(p, h) { return { css: '', body: '<h1>${n}</h1>' + h.esc(p.name) }; }\n`;
+  const store = openStore(dir);
+  writeFileSync(join(dir, 'themes', 'mine.js'), src(1));
+  await syncLibrary(store);
+  writeFileSync(join(dir, 'themes', 'mine.js'), src(2)); // an agent edits the file directly
+  let d = await getDesign(store, 'mine');
+  assert.deepEqual(d.versions.map((v) => [v.n, v.note]), [[2, 'edited outside Studio'], [1, 'created']]);
+  const n = await restoreVersion(store, 'mine', 1);
+  assert.equal(n, 3);
+  assert.match(readFileSync(join(dir, 'themes', 'mine.js'), 'utf8'), /take 1/);
+  d = await getDesign(store, 'mine');
+  assert.equal(d.versions.length, 3, 'restoring added a version, kept the others');
+  await setFlag(store, 'mine', 'archived', true);
+  const lib = await getLibrary(store, { current: 'mine' });
+  assert.equal(lib.designs[0].archived, true);
+  assert.equal(lib.designs[0].current, true);
+  // A deleted file keeps its record and history, and can be restored.
+  rmSync(join(dir, 'themes', 'mine.js'));
+  assert.equal((await getLibrary(store)).designs[0].missing, true);
+  await restoreVersion(store, 'mine', 2);
+  assert.match(readFileSync(join(dir, 'themes', 'mine.js'), 'utf8'), /take 2/);
+  assert.ok(!(await getLibrary(store)).designs[0].missing);
+  await assert.rejects(setFlag(store, 'mine', 'deleted', true));
+});
+
+test('studio API: reads, guarded writes, version preview, host check', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-api-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify({ ...example, theme: 'bento' }));
+  mkdirSync(join(dir, 'themes'));
+  writeFileSync(join(dir, 'themes', 'mine.js'), `export const meta = { name: 'mine', description: 'first' };\nexport function render(p, h) { return { css: '', body: '<h1>FIRST ' + h.esc(p.name) + '</h1>' }; }\n`);
+  const port = 5400 + Math.floor(Math.random() * 400);
+  const srv = await serve({ config: join(dir, 'folio.json'), port });
+  const base = `http://127.0.0.1:${port}`;
+  const post = (path, body, headers = {}) => fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1', ...headers }, body: JSON.stringify(body) });
+  try {
+    const lib = await (await fetch(base + '/api/library')).json();
+    assert.equal(lib.designs[0].id, 'mine');
+    assert.equal(lib.current, 'bento');
+    assert.ok(lib.builtins.some((b) => b.id === 'blueprint'));
+    writeFileSync(join(dir, 'themes', 'mine.js'), `export const meta = { name: 'mine', description: 'second' };\nexport function render(p, h) { return { css: '', body: '<h1>SECOND</h1>' }; }\n`);
+    const d = await (await fetch(base + '/api/designs/mine')).json();
+    assert.equal(d.versions.length, 2);
+    assert.match(await (await fetch(base + '/preview/mine?v=1')).text(), /FIRST Maya/);
+    assert.match(await (await fetch(base + '/preview/mine')).text(), /SECOND/);
+    assert.equal((await post('/api/designs/mine/flag', { flag: 'favorite', value: true }, { Origin: 'https://evil.example' })).status, 403);
+    assert.equal((await fetch(base + '/api/designs/mine/flag', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' })).status, 403);
+    assert.equal((await post('/api/designs/mine/flag', { flag: 'favorite', value: true })).status, 200);
+    assert.equal((await post('/api/designs/mine/restore', { n: 1 })).status, 200);
+    assert.match(readFileSync(join(dir, 'themes', 'mine.js'), 'utf8'), /FIRST/);
+    assert.equal((await post('/api/site/theme', { id: 'mine' })).status, 200);
+    assert.equal(JSON.parse(readFileSync(join(dir, 'folio.json'), 'utf8')).theme, 'mine');
+    assert.equal((await post('/api/site/theme', { id: '../../etc' })).status, 400);
+    assert.equal((await fetch(base + '/api/designs/..%2F..%2Fx')).status, 400);
+    const studio = await (await fetch(base + '/studio')).text();
+    assert.match(studio, /Folio Studio/);
+    // fetch() won't send a forged Host header, so use a raw request like a rebinding attack would.
+    const rebound = await new Promise((ok, fail) => {
+      const r = httpRequest({ host: '127.0.0.1', port, path: '/api/library', headers: { Host: 'evil.example' } }, (res) => { res.resume(); ok(res.statusCode); });
+      r.on('error', fail);
+      r.end();
+    });
+    assert.equal(rebound, 403, 'DNS-rebinding guard');
+  } finally {
+    srv.close();
+  }
 });
