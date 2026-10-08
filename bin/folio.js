@@ -63,6 +63,9 @@ ${c.b('Design your own theme')}
   folio shot [--theme <name>] [--out folio-shots] full-page + per-screen shots: desktop + phone, light + dark
             [--device desktop|mobile] [--scheme light|dark] [--pure]   (--pure ignores your style overrides)
 
+${c.b('For AI apps')}
+  folio mcp                                       run as an MCP server (stdio) for Claude, Cursor, Codex, VS Code…
+
 ${c.b('Options')}
   --config <path>   folio.json location (default: ./folio.json)
 
@@ -421,6 +424,8 @@ async function main() {
       return cmdJobs(args, config);
     case 'persona':
       return cmdPersona(args, config);
+    case 'mcp':
+      return (await import('../src/mcp.js')).runMcp({ config });
     case 'refs':
     case 'references':
       return cmdRefs(args, config);

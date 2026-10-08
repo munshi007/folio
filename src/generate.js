@@ -258,6 +258,34 @@ Full rubric: skills/folio/DESIGN.md.
 `;
 }
 
+// ---- Mix: parts of several designs combined -------------------------------------------------
+
+export function mixMarkdown(p, run, b, cli, persona) {
+  const name = themeNameFor(run, b);
+  const m = b.mix;
+  const t = m.traits || {};
+  const line = (aspect, id, extra) => `- **${aspect} from \`${id}\`**${extra ? `: ${extra}` : ''}. Read \`themes/${id}.js\` for it.`;
+  return `# Mix: one design from the best parts of several
+
+${p.name} compared designs and picked a part from each. Combine them into one coherent site.
+${personaSection(persona)}
+## The parts
+${line('Layout and structure', m.layout, 'your file starts as an exact copy of it, so the structure is already there')}
+${line('Colours', m.colors, t[m.colors]?.colors?.length ? `its palette is roughly ${t[m.colors].colors.join(', ')}` : '')}
+${line('Typography', m.type, t[m.type]?.fonts?.length ? `it uses ${t[m.type].fonts.join(' + ')}` : '')}
+${line('Signature moment', m.signature, 'the one interaction or detail people remember')}
+
+It must read as one design, not a collage: retune spacing, contrast and accents so the parts belong together. Keep everything readable in light and dark.
+
+## Do this
+1. Edit \`themes/${name}.js\` (a copy of ${m.layout}). Keep \`meta.name = '${name}'\`; write a one-line \`meta.description\` naming what came from where.
+2. Rules: nothing about the person hardcoded; every profile value through \`h.esc\` / \`h.inline\` / \`h.md\` / \`h.attrUrl\`; no external scripts; at most 2 font families; phones, dark and light, reduced motion, focus styles; \`h.ordered(p, sections)\`; works with JS off.
+3. \`${cli} theme check ${name}\`: **0 errors required.**
+4. \`${cli} shot --theme ${name} --scheme light --pure\` and look at the \`-part1\` screens; fix what's off.
+5. Reply with the theme name and one sentence on the result.
+`;
+}
+
 // ---- Runs on disk ----------------------------------------------------------------------------
 
 export const GEN_DIR = '.folio/gen';
@@ -320,13 +348,15 @@ Full rubric and banned patterns: skills/folio/DESIGN.md.
 `;
 }
 
-export async function createRun(base, p, { count = 6, seed, cli, like, keep = 'vibe', sketches = null, persona = null } = {}) {
+export async function createRun(base, p, { count = 6, seed, cli, like, keep = 'vibe', sketches = null, persona = null, mix = null } = {}) {
   const run = await nextRun(base);
   const usedSeed = seed ?? Number(createHash('sha1').update(`${Date.now()}${p.name}`).digest().readUInt32BE(0));
   let parentDescription = '';
   if (like) parentDescription = (await loadTheme(like, base)).meta.description || ''; // also validates `like`
   if (like && !KEEPS[keep]) throw new Error(`--keep must be one of: ${Object.keys(KEEPS).join(', ')}`);
-  const briefs = sketches
+  const briefs = mix
+    ? [{ n: 1, mix, move: 'mix', label: `Mix of ${[...new Set([mix.layout, mix.colors, mix.type, mix.signature])].join(', ')}`, detail: '' }]
+    : sketches
     ? sketches.map((sk, i) => ({ n: i + 1, sketch: sk, move: `from-${sk.layout}`, label: `From sketch: ${sk.title}`, detail: sk.mood }))
     : like ? makeVariations(like, { count, seed: usedSeed, keep }) : makeBriefs(p, { count, seed: usedSeed });
   const dir = join(base, GEN_DIR, String(run));
@@ -337,17 +367,17 @@ export async function createRun(base, p, { count = 6, seed, cli, like, keep = 'v
   const files = [];
   for (const b of briefs) {
     const name = themeNameFor(run, b);
-    const brief = b.sketch ? sketchBriefMarkdown(p, run, b, briefs.length, cli, persona) : like ? variationMarkdown(p, run, b, briefs.length, cli, parentDescription, persona) : briefMarkdown(p, run, b, briefs.length, cli, persona);
+    const brief = b.mix ? mixMarkdown(p, run, b, cli, persona) : b.sketch ? sketchBriefMarkdown(p, run, b, briefs.length, cli, persona) : like ? variationMarkdown(p, run, b, briefs.length, cli, parentDescription, persona) : briefMarkdown(p, run, b, briefs.length, cli, persona);
     await writeFile(join(dir, `brief-${b.n}.md`), brief);
     const themeFile = join(base, 'themes', `${name}.js`);
     if (!existsSync(themeFile)) {
-      const pending = b.sketch ? `PENDING: built from sketch ${b.sketch.title}` : like ? `PENDING: ${b.label} variation of ${like}` : `PENDING: ${b.direction.name} (not designed yet)`;
-      const src = like ? await themeSource(like, name, base) : starter.replace("name: '__NAME__'", `name: '${name}'`);
+      const pending = b.mix ? `PENDING: mix of ${b.label.slice(7)}` : b.sketch ? `PENDING: built from sketch ${b.sketch.title}` : like ? `PENDING: ${b.label} variation of ${like}` : `PENDING: ${b.direction.name} (not designed yet)`;
+      const src = b.mix ? await themeSource(b.mix.layout, name, base) : like ? await themeSource(like, name, base) : starter.replace("name: '__NAME__'", `name: '${name}'`);
       await writeFile(themeFile, markPending(src, pending));
     }
-    files.push({ name, brief: join(dir, `brief-${b.n}.md`), theme: themeFile, direction: b.sketch ? b.label : like ? `${b.label}: ${b.detail}` : b.direction.name });
+    files.push({ name, brief: join(dir, `brief-${b.n}.md`), theme: themeFile, direction: b.mix || b.sketch ? b.label : like ? `${b.label}: ${b.detail}` : b.direction.name });
   }
-  await writeFile(join(dir, 'run.json'), `${JSON.stringify({ run, seed: usedSeed, parent: like ?? null, keep: like ? keep : null, fromSketches: sketches ? sketches.map((k) => k.id) : null, created: new Date().toISOString(), briefs: briefs.map((b) => ({ ...b, sketch: b.sketch ? b.sketch.id : undefined, direction: b.direction?.id ?? null, theme: themeNameFor(run, b) })) }, null, 2)}\n`);
+  await writeFile(join(dir, 'run.json'), `${JSON.stringify({ run, seed: usedSeed, parent: like ?? null, keep: like ? keep : null, fromSketches: sketches ? sketches.map((k) => k.id) : null, mix: mix ? { layout: mix.layout, colors: mix.colors, type: mix.type, signature: mix.signature } : null, created: new Date().toISOString(), briefs: briefs.map((b) => ({ ...b, mix: undefined, sketch: b.sketch ? b.sketch.id : undefined, direction: b.direction?.id ?? null, theme: themeNameFor(run, b) })) }, null, 2)}\n`);
 
   // Generated drafts and screenshots don't belong in the user's git history by default.
   const gi = join(base, '.folio', '.gitignore');

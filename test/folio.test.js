@@ -627,3 +627,92 @@ test('studio API: persona answers before a read, sketches round + build job', as
     srv.close();
   }
 });
+
+// ---- compare/mix + publish -------------------------------------------------------------------
+import { designTraits } from '../src/traits.js';
+import { publishCheck } from '../src/publish.js';
+
+test('traits come from what a design renders', async () => {
+  const { html } = await renderHtml(example, { theme: 'blueprint' });
+  const t = designTraits(html);
+  assert.ok(t.fonts.includes('IBM Plex Mono'));
+  assert.ok(t.colors.length >= 3 && t.colors.every((c) => /^#[0-9a-f]{6}$/.test(c)));
+});
+
+test('mix job copies the layout design and briefs the other parts', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-mix-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  const port = 6500 + Math.floor(Math.random() * 300);
+  const srv = await serve({ config: join(dir, 'folio.json'), port });
+  const post = (path, body) => fetch(`http://127.0.0.1:${port}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1' }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await post('/api/jobs', { mix: { layout: 'bento', colors: 'nope', type: 'editorial', signature: 'terminal' } })).status, 400);
+    const j = await (await post('/api/jobs', { mix: { layout: 'bento', colors: 'blueprint', type: 'editorial', signature: 'terminal' } })).json();
+    assert.equal(j.kind, 'mix');
+    const theme = readFileSync(join(dir, 'themes', `${j.items[0].theme}.js`), 'utf8');
+    assert.match(theme, /Bento-grid|bento/i, 'starts as a copy of the layout design');
+    const brief = readFileSync(join(dir, '.folio', 'gen', String(j.run), 'brief-1.md'), 'utf8');
+    assert.match(brief, /Colours from `blueprint`/);
+    assert.match(brief, /Typography from `editorial`.*Instrument Sans|Typography from `editorial`.*Fraunces/s);
+    const tr = await (await fetch(`http://127.0.0.1:${port}/api/designs/bento/traits`)).json();
+    assert.ok(tr.fonts.length);
+  } finally {
+    srv.close();
+  }
+});
+
+test('publish: checklist flags personal details, needs confirmation, can just build files', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-pub-'));
+  const cfg = join(dir, 'folio.json');
+  writeFileSync(cfg, JSON.stringify(example));
+  let c = await publishCheck({ configPath: cfg, base: dir });
+  assert.ok(!c.items.some((i) => i.level === 'error'), `clean profile has no errors: ${JSON.stringify(c.items)}`);
+  assert.ok(c.items.some((i) => /email .* public/i.test(i.text)));
+  assert.equal(c.canPublish, false, 'no GitHub remote yet');
+  writeFileSync(cfg, JSON.stringify({ ...example, about: 'Call me on +49 1525 784 5837. I live at 12 Main Street.' }));
+  c = await publishCheck({ configPath: cfg, base: dir });
+  assert.ok(c.items.some((i) => i.level === 'error' && /phone/.test(i.text)));
+  assert.ok(c.items.some((i) => i.level === 'error' && /street address/.test(i.text)));
+  writeFileSync(cfg, JSON.stringify(example));
+  const port = 6800 + Math.floor(Math.random() * 300);
+  const srv = await serve({ config: cfg, port });
+  const post = (body) => fetch(`http://127.0.0.1:${port}/api/publish`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1' }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await post({ host: 'github-pages' })).status, 400, 'needs confirm');
+    const r = await (await post({ host: 'files' })).json();
+    assert.ok(existsSync(join(r.outDir, 'index.html')));
+  } finally {
+    srv.close();
+  }
+});
+
+test('mcp server speaks JSON-RPC over stdio and reports tool errors as results', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-mcp-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  const { spawn } = await import('node:child_process');
+  const bin = (await import('node:url')).fileURLToPath(new URL('../bin/folio.js', import.meta.url));
+  const child = spawn(process.execPath, [bin, 'mcp', '--config', join(dir, 'folio.json')]);
+  const lines = [];
+  let buf = '';
+  child.stdout.on('data', (d) => { buf += d; let i; while ((i = buf.indexOf('\n')) >= 0) { lines.push(JSON.parse(buf.slice(0, i))); buf = buf.slice(i + 1); } });
+  const msgs = [
+    { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '1' } } },
+    { jsonrpc: '2.0', method: 'notifications/initialized' },
+    { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+    { jsonrpc: '2.0', id: 3, method: 'tools/call', params: { name: 'folio_generate', arguments: { count: 2 } } },
+    { jsonrpc: '2.0', id: 4, method: 'tools/call', params: { name: 'folio_jobs_next', arguments: {} } },
+    { jsonrpc: '2.0', id: 5, method: 'tools/call', params: { name: 'folio_persona_write', arguments: { persona: { headline: '' } } } },
+    { jsonrpc: '2.0', id: 6, method: 'nope' },
+  ];
+  for (const m of msgs) child.stdin.write(`${JSON.stringify(m)}\n`);
+  child.stdin.end();
+  await new Promise((r) => child.on('close', r));
+  const byId = Object.fromEntries(lines.map((l) => [l.id, l]));
+  assert.equal(byId[1].result.serverInfo.name, 'folio');
+  assert.ok(byId[2].result.tools.length >= 10);
+  assert.match(byId[3].result.content[0].text, /2 designs waiting/);
+  assert.match(byId[4].result.content[0].text, /"theme": "g1-1-/);
+  assert.equal(byId[5].result.isError, true, 'invalid persona is a readable tool error');
+  assert.equal(byId[6].error.code, -32601);
+  assert.equal(lines.length, 6, 'no reply to the notification, nothing else on stdout');
+});

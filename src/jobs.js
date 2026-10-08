@@ -74,12 +74,12 @@ async function withProgress(store, base, job) {
   return { ...job, status, items, progress };
 }
 
-export async function createJob(store, base, profile, { like = null, keep = 'vibe', count, cli, seed, sketches = null }) {
+export async function createJob(store, base, profile, { like = null, keep = 'vibe', count, cli, seed, sketches = null, mix = null }) {
   const persona = await store.data.readJSON('persona.json', null);
-  const { run, files, seed: usedSeed } = await createRun(base, profile, { count: sketches ? sketches.length : count ?? (like ? 3 : 6), like, keep, cli, seed, sketches, persona });
+  const { run, files, seed: usedSeed } = await createRun(base, profile, { count: sketches ? sketches.length : count ?? (like ? 3 : 6), like, keep, cli, seed, sketches, persona, mix });
   const job = {
     id: `j${randomBytes(5).toString('hex')}`,
-    kind: sketches ? 'from-sketches' : like ? 'variations' : 'generate',
+    kind: mix ? 'mix' : sketches ? 'from-sketches' : like ? 'variations' : 'generate',
     status: 'active',
     createdAt: now(),
     run,

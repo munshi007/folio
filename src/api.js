@@ -25,6 +25,8 @@ import { readPersona, patchPersona, restorePersona, addCorrection, QUESTIONS } f
 import { readRefs, setRefFlag } from './references.js';
 import { listRounds, readPicks, autoRound, pick, getSpec, tasteFrom, tasteSummary, validSpecId } from './explore.js';
 import { renderSketch } from './sketch.js';
+import { designTraits } from './traits.js';
+import { publishCheck, publish } from './publish.js';
 import { KEEPS } from './generate.js';
 import { fileURLToPath } from 'node:url';
 
@@ -197,6 +199,15 @@ export async function handleApi(req, res, url, ctx) {
       return send(res, 200, lib), true;
     }
 
+    const tm = path.match(/^\/api\/designs\/([^/]+)\/traits$/);
+    if (tm && req.method === 'GET') {
+      const id = decodeURIComponent(tm[1]);
+      const names = (await listThemes(base)).map((t) => t.name);
+      if (!names.includes(id)) return send(res, 404, { error: 'no such design' }), true;
+      const { html } = await renderHtml(await loadConfig(configPath), { theme: id, baseDir: base, pure: true });
+      return send(res, 200, designTraits(html)), true;
+    }
+
     const m = path.match(/^\/api\/designs\/([^/]+)(\/(restore|flag))?$/);
     if (m) {
       const id = decodeURIComponent(m[1]);
@@ -226,6 +237,20 @@ export async function handleApi(req, res, url, ctx) {
       const raw = await loadConfig(configPath);
       const { errors } = validate(raw);
       if (errors.length) return send(res, 400, { error: `fix folio.json first: ${errors.join('; ')}` }), true;
+      if (body.mix) {
+        const names = (await listThemes(base)).map((t) => t.name);
+        const mix = {};
+        for (const k of ['layout', 'colors', 'type', 'signature']) {
+          if (!names.includes(body.mix[k])) return send(res, 400, { error: `mix.${k}: pick one of your designs` }), true;
+          mix[k] = body.mix[k];
+        }
+        mix.traits = {};
+        for (const id of new Set(Object.values(mix).filter((v) => typeof v === 'string'))) {
+          const { html } = await renderHtml(raw, { theme: id, baseDir: base, pure: true });
+          mix.traits[id] = designTraits(html);
+        }
+        return send(res, 200, await createJob(store, base, normalize(raw), { mix, cli: CLI })), true;
+      }
       const like = body.like == null ? null : String(body.like);
       if (like != null && !(await listThemes(base)).some((t) => t.name === like)) return send(res, 400, { error: `unknown design "${like}"` }), true;
       const keep = body.keep == null ? 'vibe' : String(body.keep);
@@ -241,6 +266,16 @@ export async function handleApi(req, res, url, ctx) {
       if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
       if (!validJobId(jm[1])) return send(res, 400, { error: 'bad job id' }), true;
       return send(res, 200, await cancelJob(store, base, jm[1])), true;
+    }
+
+    // ---- publish ----
+    if (path === '/api/publish/check' && req.method === 'GET') return send(res, 200, await publishCheck({ configPath, base })), true;
+    if (path === '/api/publish') {
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      const body = await readJSONBody(req);
+      // Pushing to the internet needs an explicit yes from the page, not just a click that happens to POST here.
+      if (body.host === 'github-pages' && body.confirm !== true) return send(res, 400, { error: 'confirm publishing first' }), true;
+      return send(res, 200, await publish({ configPath, base, store, host: body.host })), true;
     }
 
     if (path === '/api/site/theme') {

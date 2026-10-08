@@ -94,6 +94,22 @@ npx folio-site deploy                # publish to GitHub Pages
 
 Without an agent you can't generate designs (that's the agent's job), but you get four solid built-in themes, the live preview, and everything else.
 
+## Use it from your AI app (MCP)
+
+folio is also an MCP server, so Claude, Cursor, Codex, VS Code and other MCP clients can drive it directly: open Studio, read and write the persona, add references, make sketches, start rounds, claim designs, check them.
+
+```bash
+claude mcp add folio -- npx -y folio-site@latest mcp     # Claude Code
+```
+
+Other clients take the same command in their MCP settings:
+
+```json
+{ "mcpServers": { "folio": { "command": "npx", "args": ["-y", "folio-site@latest", "mcp"] } } }
+```
+
+The repo is also a Claude Code plugin (skill + MCP server together, see `.claude-plugin/`).
+
 ## Tweak without code
 
 The preview has a control bar: pick the **design**, force **light/dark**, swap the **font** (serif, sans, mono), **reorder or hide sections**. Every click is saved to `folio.json`, and works on every design, including generated ones:
@@ -123,7 +139,10 @@ For a quick start without generating, four hand-tuned themes ship with folio: **
 | `folio generate [--count 6] [--seed n]` | Brief N different designers for your agent; watch them land in the gallery |
 | `folio generate --like <design> [--keep vibe\|colors\|type\|layout\|signature]` | "More like this": siblings that keep what you liked and change two big things each |
 | `folio pick <design> [--as <name>]` | Keep a generated design under a proper name and set it in `folio.json` |
-| `folio studio` | Open Folio Studio: the Library, design history, restore, favorites, archive |
+| `folio studio` | Open Folio Studio: Library, Persona, Explore (sketches), Compare + mix, Publish |
+| `folio persona [write <file>]` · `folio refs [add <file>]` · `folio sketch auto\|add\|show` | Persona card, reference board, first-screen sketches (agents write; you correct in Studio) |
+| `folio jobs [next \| cancel <id>]` | Generation progress; agents claim the next design or task |
+| `folio mcp` | Run as an MCP server for AI apps |
 | `folio dev` | The same local server without opening a browser (Studio at `/studio`, your site at `/`) |
 | `folio build [--out dist]` | Render the static site |
 | `folio deploy` | Build and publish to GitHub Pages (asks first) |

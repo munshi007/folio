@@ -110,6 +110,13 @@ aside.panel{flex:1 1 340px;min-width:0;max-width:440px;background:var(--card);bo
 .sk.liked{border-color:#9ad72a;box-shadow:0 0 0 1px #9ad72a}
 .sk.skipped{opacity:.45}
 .buildbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-radius:16px;background:#17171a;color:#fff}
+.cmp{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,280px),1fr));gap:16px}
+.swatches{display:flex;gap:6px}.swatches i{width:26px;height:26px;border-radius:7px;border:1px solid var(--line)}
+.mixrow{display:grid;grid-template-columns:150px minmax(0,1fr);gap:12px;align-items:center}
+.cmpbar{position:sticky;bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px;border-radius:14px;background:var(--ink);color:var(--bg)}
+.checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.checks li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;font-size:14.5px}
+.checks .ok{color:var(--ok)}.checks .warn{color:var(--warn)}.checks .error{color:#d4462f}
 .toast{position:fixed;left:0;right:0;margin:0 auto;width:max-content;max-width:calc(100vw - 32px);bottom:24px;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:500;opacity:0;transform:translateY(16px);transition:all .25s;pointer-events:none}
 .toast.on{opacity:1;transform:none}
 @media (max-width:760px){main{padding:24px 16px 60px}nav.side{max-width:none;border-right:0;border-bottom:1px solid var(--line)}}
@@ -176,6 +183,9 @@ function copy(text, hint) {
 }
 
 const AGENT_ASK = 'Work on my folio jobs';
+const cmpKey = 'folio-compare';
+function cmpGet() { try { return JSON.parse(sessionStorage.getItem(cmpKey) || '[]'); } catch { return []; } }
+function cmpToggle(id) { const c = cmpGet(); const n = c.includes(id) ? c.filter((x) => x !== id) : [...c, id].slice(-4); try { sessionStorage.setItem(cmpKey, JSON.stringify(n)); } catch {} refresh(); }
 function agentBox() {
   return h('div', { class: 'agentbox' }, 'Tell your agent:', h('code', null, AGENT_ASK),
     h('button', { class: 'btn', type: 'button', onclick: () => copy(AGENT_ASK, 'Copied. Paste it to Claude Code, Cursor or Codex (it runs: folio jobs next)') }, 'Copy'),
@@ -202,7 +212,7 @@ function newRunPanel() {
 }
 function jobCard(j) {
   const p = j.progress;
-  const what = j.kind === 'variations' ? 'More like ' + j.like + ' (keep ' + j.keep + ')' : j.kind === 'from-sketches' ? 'Building ' + p.total + ' liked sketches' : p.total + ' new directions';
+  const what = j.kind === 'mix' ? 'A mix of your picks' : j.kind === 'variations' ? 'More like ' + j.like + ' (keep ' + j.keep + ')' : j.kind === 'from-sketches' ? 'Building ' + p.total + ' liked sketches' : p.total + ' new directions';
   const title = j.kind === 'persona' ? (j.correction ? 'Persona re-read: “' + j.correction + '”' : 'Reading your profile') : j.kind === 'sketches' ? 'Your agent is inventing sketches' : 'Round ' + j.run + ' · ' + what;
   return h('section', { class: 'job', 'aria-label': title },
     h('div', { class: 'row between' },
@@ -230,7 +240,8 @@ function card(d) {
         h('a', { class: 'btn dark', href: open }, 'Open'),
         !d.current && h('button', { class: 'btn', type: 'button', disabled: d.pending || d.missing, onclick: () => useDesign(d.id).catch((e) => toast(e.message)) }, 'Make my site'),
         h('button', { class: 'btn star', type: 'button', 'aria-pressed': String(!!d.favorite), 'aria-label': (d.favorite ? 'Unfavorite ' : 'Favorite ') + d.id, onclick: () => flag(d.id, 'favorite', !d.favorite) }, d.favorite ? '★' : '☆'),
-        h('button', { class: 'btn', type: 'button', onclick: () => flag(d.id, 'archived', !d.archived) }, d.archived ? 'Unarchive' : 'Archive'))));
+        h('button', { class: 'btn', type: 'button', onclick: () => flag(d.id, 'archived', !d.archived) }, d.archived ? 'Unarchive' : 'Archive'),
+        !d.pending && !d.missing && h('button', { class: 'btn', type: 'button', 'aria-pressed': String(cmpGet().includes(d.id)), onclick: () => cmpToggle(d.id) }, cmpGet().includes(d.id) ? '✓ Compare' : 'Compare'))));
 }
 
 function renderLibrary(lib) {
@@ -281,6 +292,10 @@ function renderLibrary(lib) {
   }
   if (!visible.length && lib.designs.length) main.append(h('div', { class: 'empty' }, state.filter === 'favorites' ? 'No favorites yet. Star a design to keep it close.' : 'Nothing archived.'));
 
+  const sel = cmpGet();
+  if (sel.length) main.append(h('div', { class: 'cmpbar' }, h('span', null, sel.length + ' picked to compare: ' + sel.join(', ')),
+    h('span', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: () => { try { sessionStorage.removeItem(cmpKey); } catch {} refresh(); } }, 'Clear'),
+      sel.length >= 2 ? h('a', { class: 'btn lime', href: '/studio?view=compare&ids=' + sel.map(encodeURIComponent).join(',') }, 'Compare ' + sel.length + ' →') : h('span', { class: 'mono', style: 'color:inherit' }, 'pick one more'))));
   main.append(h('section', { class: 'section' }, h('div', { class: 'h' }, h('h2', null, 'Built-in themes'), h('span', { class: 'mono' }, 'starting points')),
     h('div', { class: 'grid' }, lib.builtins.map((b) => h('article', { class: 'card' + (lib.current === b.id ? ' cur' : '') }, thumb(b.id),
       h('div', { class: 'body' }, h('b', null, b.id), h('p', { class: 'desc', style: 'margin:0' }, b.description),
@@ -304,7 +319,8 @@ async function renderDesign(id) {
         info.current ? h('span', { class: 'badge mine' }, '★ your site') : h('button', { class: 'btn pri', type: 'button', disabled: info.pending, onclick: () => useDesign(id).catch((e) => toast(e.message)) }, 'Make my site'),
         h('button', { class: 'btn', type: 'button', 'aria-expanded': String(!!state.more), onclick: () => { state.more = !state.more; renderDesign(id); } }, 'More like this'),
         h('button', { class: 'btn star', type: 'button', 'aria-pressed': String(!!d.favorite), onclick: () => flag(id, 'favorite', !d.favorite) }, d.favorite ? '★ Favorite' : '☆ Favorite'),
-        h('a', { class: 'btn', href: '/preview/' + encodeURIComponent(id) + (sel && sel !== latest ? '?v=' + sel : ''), target: '_blank', rel: 'noopener' }, 'Open full ↗'))),
+        h('a', { class: 'btn', href: '/preview/' + encodeURIComponent(id) + (sel && sel !== latest ? '?v=' + sel : ''), target: '_blank', rel: 'noopener' }, 'Open full ↗'),
+        lib.current && lib.current !== id ? h('a', { class: 'btn', href: '/studio?view=compare&ids=' + encodeURIComponent(id) + ',' + encodeURIComponent(lib.current) }, 'Compare with my site') : null)),
     state.more ? h('section', { class: 'newrun', 'aria-label': 'More like this' },
       h('b', null, 'More like ' + titleOf(info.id ? info : d)),
       h('p', { class: 'sub', style: 'margin:0' }, 'What do you like about it? That stays. Each variation changes two big things.'),
@@ -441,6 +457,74 @@ async function renderExplore() {
       })))) : h('div', { class: 'empty' }, 'No sketches yet. Start with 12 instant ones above: they take a second.'));
 }
 
+async function renderCompare() {
+  const ids = (new URLSearchParams(location.search).get('ids') || '').split(',').filter(Boolean).slice(0, 4);
+  const main = $('main');
+  if (ids.length < 2) { fill(main, h('div', { class: 'empty' }, 'Pick two to four designs in the Library (Compare on each card).')); return; }
+  const [lib, ...traits] = await Promise.all([api('/api/library'), ...ids.map((id) => api('/api/designs/' + encodeURIComponent(id) + '/traits').catch(() => ({ fonts: [], colors: [] })))]);
+  const info = (id) => lib.designs.find((d) => d.id === id) || { id };
+  state.mix = state.mix || { layout: ids[0], colors: ids[1] || ids[0], type: ids[0], signature: ids[ids.length - 1] };
+  for (const k of Object.keys(state.mix)) if (!ids.includes(state.mix[k])) state.mix[k] = ids[0];
+  const aspects = [['layout', 'Layout & structure'], ['colors', 'Colors'], ['type', 'Typography'], ['signature', 'Signature moment']];
+  fill(main,
+    h('header', null, h('a', { href: '/studio' }, '← Library'), h('h1', { style: 'margin-top:6px' }, 'Compare, then mix'),
+      h('p', { class: 'sub' }, 'Pick one, or take the best part of each. A mix becomes a new design; the originals stay as they are.')),
+    h('div', { class: 'cmp' }, ids.map((id, i) => {
+      const d = info(id), t = traits[i];
+      return h('article', { class: 'card' + (d.current ? ' cur' : '') }, thumb(id),
+        h('div', { class: 'body' }, h('div', { class: 'top' }, h('b', null, titleOf(d)), h('span', { class: 'mono' }, d.latest ? 'v' + d.latest : '')),
+          h('p', { class: 'desc', style: 'margin:0' }, d.description || ''),
+          h('span', { class: 'mono' }, 'Type: ' + (t.fonts.join(' + ') || 'system')),
+          h('div', { class: 'swatches', 'aria-label': 'Main colors' }, t.colors.map((c) => { const sw = h('i', { title: c }); sw.style.background = c; return sw; })),
+          h('div', { class: 'acts' }, d.current ? h('span', { class: 'badge mine' }, '★ your site') : h('button', { class: 'btn dark', type: 'button', onclick: () => useDesign(id).catch((e) => toast(e.message)) }, 'Use this one'),
+            h('a', { class: 'btn', href: '/studio?d=' + encodeURIComponent(id) }, 'Open'))));
+    })),
+    h('section', { class: 'box', 'aria-label': 'Mix' }, h('h2', null, 'Mix the best parts'),
+      aspects.map(([k, label]) => h('div', { class: 'mixrow', role: 'radiogroup', 'aria-label': label + ' from' }, h('b', null, label),
+        h('div', { class: 'row' }, ids.map((id) => h('button', { class: 'chip', type: 'button', role: 'radio', 'aria-checked': String(state.mix[k] === id), 'aria-pressed': String(state.mix[k] === id), onclick: () => { state.mix[k] = id; renderCompare(); } }, titleOf(info(id))))))),
+      h('div', { class: 'row between' }, h('span', { class: 'sub', style: 'margin:0' }, 'New design: layout from ' + titleOf(info(state.mix.layout)) + ', colors from ' + titleOf(info(state.mix.colors)) + ', type from ' + titleOf(info(state.mix.type)) + ', signature from ' + titleOf(info(state.mix.signature)) + '.'),
+        h('button', { class: 'btn pri', type: 'button', onclick: async () => { try { const j = await api('/api/jobs', { mix: state.mix }); toast('Mix started as round ' + j.run + ', ready for your agent'); location.href = '/studio'; } catch (e) { toast(e.message); } } }, 'Build this mix'))));
+}
+
+async function renderPublish() {
+  const [check, lib] = await Promise.all([api('/api/publish/check'), api('/api/library')]);
+  const main = $('main');
+  const cur = lib.designs.find((d) => d.current);
+  const icon = { ok: '✓', warn: '!', error: '✗' };
+  const agree = h('input', { type: 'checkbox', id: 'agree' });
+  const out = h('p', { class: 'sub', role: 'status', style: 'margin:0' });
+  const go = async (host) => {
+    if (host === 'github-pages' && !agree.checked) return toast('Tick the box first: publishing makes your site public');
+    out.textContent = host === 'files' ? 'Building…' : 'Publishing…';
+    try {
+      const r = await api('/api/publish', { host, confirm: host === 'github-pages' ? true : undefined });
+      out.textContent = host === 'files' ? 'Built: your site is in ' + r.outDir + '. Upload that folder to any static host.' : 'Published. Live at ' + r.url + ' in about a minute.';
+      toast(host === 'files' ? 'Files built' : 'Published');
+      if (host !== 'files') refresh();
+    } catch (e) { out.textContent = 'Not published: ' + e.message; }
+  };
+  fill(main,
+    h('header', null, h('h1', null, 'Publish your site'), h('p', { class: 'sub' }, 'Publishing never deletes anything. You can switch back to any earlier design or version later.')),
+    h('div', { class: 'cols' },
+      h('div', { class: 'wide', style: 'display:flex;flex-direction:column;gap:16px' },
+        h('section', { class: 'box', 'aria-label': 'Design' }, h('b', null, 'Design'),
+          h('div', { class: 'row' }, thumbBox(check.theme), h('div', null, h('div', { style: 'font-size:20px;font-weight:600' }, cur ? titleOf(cur) + (cur.latest ? ' · v' + cur.latest : '') : check.theme), h('a', { href: '/studio' }, 'Change in the Library')))),
+        h('section', { class: 'box', 'aria-label': 'Before it goes live' }, h('b', null, 'Before it goes live'),
+          h('ul', { class: 'checks' }, check.items.map((i) => h('li', null, h('span', { class: i.level, 'aria-label': i.level }, icon[i.level]), h('span', null, i.text))))),
+        h('section', { class: 'box', 'aria-label': 'Publish' }, h('b', null, check.url ? 'Publish to ' + check.url : 'Publish'),
+          check.canPublish ? h('label', { for: 'agree', class: 'row', style: 'gap:8px' }, agree, 'I understand this makes my site public at ' + check.url) : h('p', { class: 'sub', style: 'margin:0' }, check.items.some((i) => i.level === 'error') ? 'Fix the ✗ items above to publish from here.' : 'Connect a GitHub repo to publish from here, or build the files and host them anywhere.'),
+          h('div', { class: 'row' },
+            h('button', { class: 'btn pri', type: 'button', disabled: !check.canPublish, onclick: () => go('github-pages') }, 'Publish to GitHub Pages'),
+            h('button', { class: 'btn', type: 'button', onclick: () => go('files') }, 'Build files instead')),
+          out)),
+      h('section', { class: 'box', 'aria-label': 'History' }, h('b', null, 'Publish history'),
+        lib.publishes.length ? h('ol', { class: 'hist' }, lib.publishes.map((pb, i) => h('li', null, h('b', { class: 'mono' }, pb.version ? 'v' + pb.version : '·'),
+          h('span', null, pb.design, h('small', null, ago(pb.at) + (pb.url ? ' · ' + pb.url : ''))),
+          i === 0 ? h('span', { class: 'mono' }, 'live') : h('button', { class: 'btn', type: 'button', onclick: () => useDesign(pb.design).then(() => toast('Your site uses ' + pb.design + ' again. Publish to make it live')) }, 'Use again')))) :
+          h('p', { class: 'sub', style: 'margin:0' }, 'Nothing published yet.'))));
+}
+function thumbBox(id) { const t = thumb(id); t.style.width = '220px'; t.style.borderRadius = '10px'; t.style.border = '1px solid var(--line)'; return t; }
+
 async function refresh() {
   try {
     state.jobs = await api('/api/jobs');
@@ -448,6 +532,8 @@ async function refresh() {
     for (const j of state.jobs) if (j.status === 'active') for (const i of j.items) state.itemState[i.theme] = i.state;
     if (view === 'persona') await renderPersona();
     else if (view === 'explore') await renderExplore();
+    else if (view === 'compare') await renderCompare();
+    else if (view === 'publish') await renderPublish();
     else if (params.get('d')) await renderDesign(params.get('d'));
     else renderLibrary(await api('/api/library'));
   } catch (e) { fill($('main'), h('div', { class: 'empty' }, 'Could not load: ' + e.message)); }
@@ -477,7 +563,7 @@ export function studioPage({ boot }) {
       <a href="/studio?view=persona" data-view="persona">Persona</a>
       <a href="/studio?view=explore" data-view="explore">Explore</a>
       <a href="/" target="_blank" rel="noopener">My site ↗</a>
-      <span>Publish <small>soon</small></span>
+      <a href="/studio?view=publish" data-view="publish">Publish</a>
     </div>
   </nav>
   <main></main>

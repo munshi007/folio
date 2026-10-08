@@ -1,0 +1,9 @@
+{
+  "name": "folio",
+  "description": "Six designers, one you: turn a resume and GitHub into several genuinely different portfolio sites, pick one, publish to GitHub Pages. Bundles the folio skill and MCP server.",
+  "version": "0.3.0",
+  "author": { "name": "Rohan Munshi" },
+  "homepage": "https://github.com/munshi007/folio",
+  "repository": "https://github.com/munshi007/folio",
+  "license": "MIT"
+}

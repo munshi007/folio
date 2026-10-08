@@ -1,12 +1,14 @@
 {
   "name": "folio-site",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Six designers, one you: your agent turns your resume and GitHub into several genuinely different portfolio sites, you pick one. Zero dependencies.",
   "type": "module",
   "bin": {
     "folio": "bin/folio.js"
   },
   "files": [
+    ".claude-plugin",
+    ".mcp.json",
     "bin",
     "src",
     "themes",
