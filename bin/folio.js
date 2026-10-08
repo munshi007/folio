@@ -18,6 +18,7 @@ import { unlink } from 'node:fs/promises';
 import { execFile } from 'node:child_process';
 import { openStore } from '../src/store.js';
 import { recordPublish } from '../src/library.js';
+import { createJob, listJobs, claimNext, cancelJob, validJobId } from '../src/jobs.js';
 
 const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -42,6 +43,7 @@ ${c.b('Generate designs')}
   folio generate [--count 6] [--seed <n>]         brief N different designers; your agent designs them
   folio generate --like <theme> [--keep vibe]     siblings of a design you liked: keep vibe|colors|type|layout|signature,
                                                   change two big things each [--count 3]
+  folio jobs [next [--json] | cancel <id>]        generation progress; agents claim the next design to make
   folio pick <theme> [--as <name>]                keep a design (optionally rename it), set it in folio.json
   ${c.dim('watch them land live: folio dev → http://localhost:4321/__folio/gallery')}
 
@@ -223,12 +225,44 @@ async function cmdGenerate(args, config) {
   // Briefs tell each designer which command to run; use the exact folio that's running now.
   const cli = `node "${process.argv[1]}"`;
   const keep = typeof args.keep === 'string' ? args.keep : 'vibe';
-  const { run, seed: used, files } = await createRun(dirname(config), normalize(raw), { count, seed, cli, like, keep });
-  console.log(`${c.g('✓')} run ${c.b(`#${run}`)}: ${files.length} ${like ? `variations of ${c.m(like)}, keeping its ${keep}` : 'briefs'} ${c.dim(`(seed ${used}; same seed = same briefs)`)}\n`);
-  for (const f of files) console.log(`  ${c.m(f.name.padEnd(24))} ${f.direction}  ${c.dim(relative(process.cwd(), f.brief))}`);
+  const base = dirname(config);
+  const job = await createJob(openStore(base), base, normalize(raw), { count, seed, cli, like, keep });
+  console.log(`${c.g('✓')} job ${c.b(job.id)} · round ${c.b(`#${job.run}`)}: ${job.files.length} ${like ? `variations of ${c.m(like)}, keeping its ${keep}` : 'briefs'} ${c.dim(`(seed ${job.seed}; same seed = same briefs)`)}\n`);
+  for (const f of job.files) console.log(`  ${c.m(f.name.padEnd(24))} ${f.direction}  ${c.dim(relative(process.cwd(), f.brief))}`);
   console.log(`\n  Each theme file renders already (${like ? `as a copy of ${like}` : 'as the plain starter'}) and is marked PENDING until designed.`);
-  console.log(`  ${c.b('Agent:')} design each brief (in parallel if you can), following skills/folio/GENERATE.md.`);
-  console.log(`  ${c.b('You:')} ${c.b('folio dev')} and open ${c.b('http://localhost:4321/__folio/gallery')}. Designs appear as they land.`);
+  console.log(`  ${c.b('Agent:')} claim and design them with ${c.b('folio jobs next')} (in parallel if you can), following skills/folio/GENERATE.md.`);
+  console.log(`  ${c.b('You:')} ${c.b('folio studio')}. Progress and designs appear live.`);
+}
+
+async function cmdJobs(args, config) {
+  const base = dirname(config);
+  const store = openStore(base);
+  const sub = args._[1];
+  if (!sub || sub === 'list') {
+    const jobs = await listJobs(store, base);
+    if (!jobs.length) return console.log(c.dim('  no jobs yet · start one with folio generate or from Studio'));
+    for (const j of jobs) {
+      const p = j.progress;
+      console.log(`  ${c.b(j.id)} ${j.kind.padEnd(10)} round ${String(j.run).padEnd(3)} ${j.status.padEnd(9)} ${c.g(`${p.designed} designed`)} · ${p.working} working · ${p.waiting} waiting${p.failed ? c.r(` · ${p.failed} failed`) : ''}`);
+    }
+    return;
+  }
+  if (sub === 'next') {
+    const next = await claimNext(store, base, typeof args.worker === 'string' ? args.worker : 'agent');
+    if (args.json) return console.log(JSON.stringify(next));
+    if (!next) return console.log(`${c.g('✓')} nothing waiting · every job is designed, working or cancelled`);
+    console.log(`${c.g('✓')} claimed ${c.m(next.theme)} from job ${next.job} ${c.dim('(yours for 20 minutes)')}`);
+    console.log(`  edit:  ${next.themePath}\n  brief: ${next.briefPath}\n`);
+    console.log(next.brief);
+    return;
+  }
+  if (sub === 'cancel') {
+    const id = args._[2];
+    if (!validJobId(id)) throw new FolioError('Usage: folio jobs cancel <job-id>');
+    const j = await cancelJob(store, base, id);
+    return console.log(`${c.g('✓')} cancelled ${id} · ${j.progress.designed} designed kept, undesigned drafts archived (restorable in Studio)`);
+  }
+  throw new FolioError('Usage: folio jobs [list] | folio jobs next [--json] | folio jobs cancel <job-id>');
 }
 
 async function cmdPick(args, config) {
@@ -308,6 +342,8 @@ async function main() {
       return cmdGenerate(args, config);
     case 'pick':
       return cmdPick(args, config);
+    case 'jobs':
+      return cmdJobs(args, config);
     case 'shot':
     case 'screenshot':
       return cmdShot(args, config);

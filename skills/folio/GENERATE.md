@@ -20,9 +20,17 @@ Studio keeps every design and version, so don't delete theme files to "clean up"
 
 ## 2. Design every brief
 
-**If you can run subagents in parallel, do.** Give each subagent the full contents of its `brief-<n>.md` as its task; the brief is self-contained (what to build, the rules, the commands, when to stop). Tell each one it may only edit its own `themes/g<run>-<n>-*.js` file.
+A run is a **job**. Rounds can also be started by the user from Studio ("New round of designs", "More like this"); then they'll ask you to "work on my folio jobs". Either way you pick up work the same way:
 
-If you can't run subagents, work through the briefs yourself one at a time, each to its stop condition. Mention progress to the user between briefs ("3 of 6 done, gallery updates live").
+```bash
+folio jobs next          # claims one waiting design, prints its brief and which file to edit
+folio jobs next --json   # same, machine-readable: {job, theme, themePath, briefPath, brief}
+folio jobs               # progress of every job
+```
+
+Each claim is yours for 20 minutes and no other worker gets it, so **parallel subagents are safe**: start one per design, and have each run `folio jobs next` itself, design the theme it got, then claim again until it prints "nothing waiting". Without subagents, loop through them yourself, telling the user progress as you go ("3 of 6 done, Studio updates live").
+
+A design counts as done when its file no longer says `PENDING` and `folio theme check` passes; Studio shows that automatically.
 
 What makes a run good:
 - **Range over safety.** If two results look like siblings, the run failed. Each designer commits fully to its brief.

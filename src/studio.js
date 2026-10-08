@@ -78,10 +78,20 @@ aside.panel{flex:1 1 340px;min-width:0;max-width:440px;background:var(--card);bo
 .seg{display:flex;gap:4px;background:var(--line);padding:4px;border-radius:12px}
 .seg button{min-height:34px;padding:0 12px;border-radius:9px;border:0;background:transparent;color:var(--ink);font:inherit;font-size:14px;cursor:pointer}
 .seg button[aria-pressed=true]{background:var(--card)}
+.jobs{display:flex;flex-direction:column;gap:12px}
+.job{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px}
+.job .bar{display:flex;gap:4px;height:8px}
+.job .bar i{flex:1;border-radius:4px;background:var(--line)}
+.job .bar i.designed{background:var(--ok)}.job .bar i.working{background:var(--acc);animation:pulse 1.2s infinite}.job .bar i.failed{background:#d4462f}
+@keyframes pulse{50%{opacity:.45}}
+.agentbox{display:flex;flex-wrap:wrap;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--bg);font-size:14px}
+.agentbox code{font:500 13px "Geist Mono",monospace;background:var(--card);border:1px solid var(--line);padding:4px 8px;border-radius:8px}
+.newrun{background:var(--card);border:1px solid var(--acc);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
+.badge.work{background:#e9ecff;color:#1d2aa8}
 .toast{position:fixed;left:0;right:0;margin:0 auto;width:max-content;max-width:calc(100vw - 32px);bottom:24px;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:500;opacity:0;transform:translateY(16px);transition:all .25s;pointer-events:none}
 .toast.on{opacity:1;transform:none}
 @media (max-width:760px){main{padding:24px 16px 60px}nav.side{max-width:none;border-right:0;border-bottom:1px solid var(--line)}}
-@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}.job .bar i.working{animation:none}}
 `;
 
 // Client code: plain DOM building, no innerHTML for data.
@@ -120,7 +130,7 @@ function thumb(id, v) {
 const titleOf = (d) => d.label || (d.direction ? d.direction.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase()) : d.id);
 const ago = (iso) => { const s = (Date.now() - new Date(iso)) / 1000; return s < 60 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : s < 86400 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' days ago'; };
 
-let state = { filter: 'all' };
+let state = { filter: 'all', jobs: [], itemState: {} };
 const params = new URLSearchParams(location.search);
 
 async function useDesign(id) {
@@ -137,6 +147,43 @@ function copy(text, hint) {
   (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => toast(hint), () => toast(text));
 }
 
+const AGENT_ASK = 'Work on my folio jobs';
+function agentBox() {
+  return h('div', { class: 'agentbox' }, 'Tell your agent:', h('code', null, AGENT_ASK),
+    h('button', { class: 'btn', type: 'button', onclick: () => copy(AGENT_ASK, 'Copied. Paste it to Claude Code, Cursor or Codex (it runs: folio jobs next)') }, 'Copy'),
+    h('span', { class: 'mono' }, 'it claims designs one by one · several agents can share a job'));
+}
+async function startJob(body) {
+  try {
+    const j = await api('/api/jobs', body);
+    state.newRun = false;
+    toast('Round ' + j.run + ' started: ' + j.progress.total + ' designs waiting for your agent');
+    if (params.get('d')) location.href = '/studio';
+    else await refresh();
+  } catch (e) { toast(e.message); }
+}
+function newRunPanel() {
+  const pick = (n) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String((state.count || 6) === n), onclick: () => { state.count = n; refresh(); } }, String(n));
+  return h('section', { class: 'newrun', 'aria-label': 'New round' },
+    h('b', null, 'New round of designs'),
+    h('p', { class: 'sub', style: 'margin:0' }, 'Each one is a different direction for your content. Your agent designs them; they appear here as they land.'),
+    h('div', { class: 'row' }, 'How many?', pick(3), pick(6), pick(9)),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn pri', type: 'button', onclick: () => startJob({ count: state.count || 6 }) }, 'Start round'),
+      h('button', { class: 'btn', type: 'button', onclick: () => { state.newRun = false; refresh(); } }, 'Cancel')));
+}
+function jobCard(j) {
+  const p = j.progress;
+  const what = j.kind === 'variations' ? 'More like ' + j.like + ' (keep ' + j.keep + ')' : p.total + ' new directions';
+  return h('section', { class: 'job', 'aria-label': 'Round ' + j.run + ' progress' },
+    h('div', { class: 'row between' },
+      h('b', null, 'Round ' + j.run + ' · ' + what),
+      h('span', { class: 'mono' }, p.designed + ' designed · ' + p.working + ' working · ' + p.waiting + ' waiting' + (p.failed ? ' · ' + p.failed + ' need fixes' : ''))),
+    h('div', { class: 'bar', role: 'img', 'aria-label': p.designed + ' of ' + p.total + ' designed' }, j.items.map((i) => h('i', { class: i.state, title: i.theme + ': ' + i.state }))),
+    p.waiting ? agentBox() : null,
+    h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: async () => { try { await api('/api/jobs/' + j.id + '/cancel', {}); toast('Round ' + j.run + ' cancelled. Undesigned drafts archived'); refresh(); } catch (e) { toast(e.message); } } }, 'Cancel round')));
+}
+
 function card(d) {
   const open = '/studio?d=' + encodeURIComponent(d.id);
   return h('article', { class: 'card' + (d.current ? ' cur' : '') + (d.archived ? ' arch' : '') },
@@ -145,11 +192,11 @@ function card(d) {
       h('div', { class: 'top' }, h('b', null, titleOf(d)), h('span', { class: 'mono' }, d.latest ? 'v' + d.latest : '')),
       h('div', { class: 'badges' },
         d.current && h('span', { class: 'badge mine' }, '★ your site'),
-        d.pending && h('span', { class: 'badge pend' }, 'designing…'),
+        d.pending && (state.itemState[d.id] === 'working' ? h('span', { class: 'badge work' }, 'agent working…') : h('span', { class: 'badge pend' }, 'waiting for your agent')),
         d.wildcard && h('span', { class: 'badge wild' }, 'wildcard'),
         d.missing && h('span', { class: 'badge pend' }, 'file missing · restorable'),
         d.versions > 1 && h('span', { class: 'badge' }, d.versions + ' versions')),
-      h('p', { class: 'desc', style: 'margin:0' }, d.pending ? 'An agent is designing this one.' : (d.description || 'No description yet.')),
+      h('p', { class: 'desc', style: 'margin:0' }, d.pending ? (state.itemState[d.id] === 'working' ? 'An agent is designing this one right now.' : 'Not designed yet. Ask your agent to work on your folio jobs.') : (d.description || 'No description yet.')),
       h('div', { class: 'acts' },
         h('a', { class: 'btn dark', href: open }, 'Open'),
         !d.current && h('button', { class: 'btn', type: 'button', disabled: d.pending || d.missing, onclick: () => useDesign(d.id).catch((e) => toast(e.message)) }, 'Make my site'),
@@ -168,7 +215,10 @@ function renderLibrary(lib) {
       h('div', null, h('h1', null, first + "'s designs"),
         h('p', { class: 'sub' }, lib.designs.length + ' designs · ' + built + ' ready · ' + lib.runs.length + ' rounds · nothing is ever deleted')),
       h('div', { class: 'row' },
-        h('button', { class: 'btn pri', type: 'button', onclick: () => copy('generate designs for my portfolio', 'Copied. Paste it to your agent (it runs: folio generate)') }, 'Explore new designs'))));
+        h('button', { class: 'btn pri', type: 'button', onclick: () => { state.newRun = true; refresh(); } }, 'New round of designs'))));
+  if (state.newRun) main.append(newRunPanel());
+  const active = state.jobs.filter((j) => j.status === 'active');
+  if (active.length) main.append(h('div', { class: 'jobs' }, active.map(jobCard)));
 
   const cur = lib.designs.find((d) => d.current) || null;
   const curBuiltin = !cur && lib.current ? lib.builtins.find((b) => b.id === lib.current) : null;
@@ -223,9 +273,17 @@ async function renderDesign(id) {
         h('p', { class: 'sub' }, (info.description || '') + (d.parent ? ' · branched from ' + d.parent : ''))),
       h('div', { class: 'row' },
         info.current ? h('span', { class: 'badge mine' }, '★ your site') : h('button', { class: 'btn pri', type: 'button', disabled: info.pending, onclick: () => useDesign(id).catch((e) => toast(e.message)) }, 'Make my site'),
-        h('button', { class: 'btn', type: 'button', onclick: () => copy('More like ' + id + ', keep the overall vibe', 'Copied. Paste it to your agent (it runs: folio generate --like ' + id + ')') }, 'More like this'),
+        h('button', { class: 'btn', type: 'button', 'aria-expanded': String(!!state.more), onclick: () => { state.more = !state.more; renderDesign(id); } }, 'More like this'),
         h('button', { class: 'btn star', type: 'button', 'aria-pressed': String(!!d.favorite), onclick: () => flag(id, 'favorite', !d.favorite) }, d.favorite ? '★ Favorite' : '☆ Favorite'),
         h('a', { class: 'btn', href: '/preview/' + encodeURIComponent(id) + (sel && sel !== latest ? '?v=' + sel : ''), target: '_blank', rel: 'noopener' }, 'Open full ↗'))),
+    state.more ? h('section', { class: 'newrun', 'aria-label': 'More like this' },
+      h('b', null, 'More like ' + titleOf(info.id ? info : d)),
+      h('p', { class: 'sub', style: 'margin:0' }, 'What do you like about it? That stays. Each variation changes two big things.'),
+      h('div', { class: 'row' }, [['vibe', 'Overall vibe'], ['colors', 'Colors'], ['type', 'Typography'], ['layout', 'Layout'], ['signature', 'Signature moment']].map(([k, label]) =>
+        h('button', { class: 'chip', type: 'button', 'aria-pressed': String((state.keep || 'vibe') === k), onclick: () => { state.keep = k; renderDesign(id); } }, label))),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn pri', type: 'button', onclick: () => { state.more = false; startJob({ like: id, keep: state.keep || 'vibe', count: 3 }); } }, 'Make 3 variations'),
+        h('button', { class: 'btn', type: 'button', onclick: () => { state.more = false; renderDesign(id); } }, 'Cancel'))) : null,
     h('div', { class: 'split' },
       h('section', { class: 'stage', 'aria-label': 'Preview' },
         h('div', { class: 'row between' },
@@ -247,9 +305,15 @@ async function renderDesign(id) {
 
 async function refresh() {
   try {
+    state.jobs = await api('/api/jobs');
+    state.itemState = {};
+    for (const j of state.jobs) if (j.status === 'active') for (const i of j.items) state.itemState[i.theme] = i.state;
     if (params.get('d')) await renderDesign(params.get('d'));
     else renderLibrary(await api('/api/library'));
   } catch (e) { $('main').replaceChildren(h('div', { class: 'empty' }, 'Could not load: ' + e.message)); }
+  // Claims don't touch watched files, so poll gently while a round is running.
+  clearTimeout(refresh.t);
+  if (state.jobs.some((j) => j.status === 'active')) refresh.t = setTimeout(refresh, 5000);
 }
 refresh();
 // Designs landing from agents refresh the view in place (no full reload, so filters and selection stay).

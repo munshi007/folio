@@ -6,6 +6,9 @@
 //   POST /api/designs/:id/restore {n}      restore version n (adds a new version)
 //   POST /api/designs/:id/flag {flag,value} favorite | archived
 //   POST /api/site/theme {id}              make a design the site's design (as designed: look overrides dropped)
+//   GET  /api/jobs                         generation jobs with live progress
+//   POST /api/jobs {count, like?, keep?}   start a generation (or "more like this") job
+//   POST /api/jobs/:id/cancel              stop a job; never-designed drafts get archived
 //   GET  /preview/:id[?v=n]                the site rendered with a design (or an old version of it), no overlay
 //
 // Writes require same-origin JSON with an X-Folio header; every route requires a localhost Host header.
@@ -17,6 +20,12 @@ import { normalize, validate } from './schema.js';
 import { themes as builtins } from '../themes/index.js';
 import { getLibrary, getDesign, getVersionSource, restoreVersion, setFlag, validId } from './library.js';
 import { applyStyleChange } from './serve.js';
+import { createJob, listJobs, cancelJob, validJobId } from './jobs.js';
+import { KEEPS } from './generate.js';
+import { fileURLToPath } from 'node:url';
+
+// The exact folio that's running, so briefs tell agents a command that works on this machine.
+const CLI = `node "${fileURLToPath(new URL('../bin/folio.js', import.meta.url))}"`;
 
 const LOCAL_HOSTS = new Set(['localhost', '127.0.0.1', '[::1]']);
 
@@ -115,6 +124,30 @@ export async function handleApi(req, res, url, ctx) {
         const rec = await setFlag(store, id, body.flag, body.value);
         return send(res, 200, { ok: true, design: rec }), true;
       }
+    }
+
+    if (path === '/api/jobs') {
+      if (req.method === 'GET') return send(res, 200, await listJobs(store, base)), true;
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      const body = await readJSONBody(req);
+      const raw = await loadConfig(configPath);
+      const { errors } = validate(raw);
+      if (errors.length) return send(res, 400, { error: `fix folio.json first: ${errors.join('; ')}` }), true;
+      const like = body.like == null ? null : String(body.like);
+      if (like != null && !(await listThemes(base)).some((t) => t.name === like)) return send(res, 400, { error: `unknown design "${like}"` }), true;
+      const keep = body.keep == null ? 'vibe' : String(body.keep);
+      if (!KEEPS[keep]) return send(res, 400, { error: `keep must be one of ${Object.keys(KEEPS).join(', ')}` }), true;
+      const count = body.count == null ? undefined : Number(body.count);
+      if (count !== undefined && !(Number.isInteger(count) && count >= 1 && count <= 12)) return send(res, 400, { error: 'count must be 1–12' }), true;
+      const job = await createJob(store, base, normalize(raw), { like, keep, count, cli: CLI });
+      return send(res, 200, job), true;
+    }
+
+    const jm = path.match(/^\/api\/jobs\/([^/]+)\/cancel$/);
+    if (jm) {
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      if (!validJobId(jm[1])) return send(res, 400, { error: 'bad job id' }), true;
+      return send(res, 200, await cancelJob(store, base, jm[1])), true;
     }
 
     if (path === '/api/site/theme') {

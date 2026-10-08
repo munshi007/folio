@@ -7,7 +7,8 @@
 // Keys are relative paths with forward slashes; they never contain "..".
 
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile, readdir, rename } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, readdir, rename, open, unlink, stat } from 'node:fs/promises';
+import { randomBytes } from 'node:crypto';
 import { dirname, join, resolve, relative, isAbsolute } from 'node:path';
 
 const KEY_RE = /^[A-Za-z0-9._-]+(\/[A-Za-z0-9._-]+)*$/;
@@ -40,7 +41,7 @@ class FsNamespace {
   async writeText(key, text) {
     const file = this.path(key);
     await mkdir(dirname(file), { recursive: true });
-    const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
+    const tmp = `${file}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
     await writeFile(tmp, text);
     await rename(tmp, file);
   }
@@ -55,6 +56,33 @@ class FsNamespace {
   }
   async writeJSON(key, value) {
     await this.writeText(key, `${JSON.stringify(value, null, 2)}\n`);
+  }
+  // Cross-process mutual exclusion: an exclusively-created lock file. Two agents running `folio jobs next`
+  // at the same moment get serialized. A lock older than STALE_MS belongs to a crashed process and is broken.
+  async withLock(name, fn, { timeoutMs = 10_000 } = {}) {
+    const STALE_MS = 30_000;
+    const file = this.path(`${name}.lock`);
+    await mkdir(dirname(file), { recursive: true });
+    const started = Date.now();
+    for (;;) {
+      try {
+        const fh = await open(file, 'wx');
+        await fh.close();
+        break;
+      } catch (e) {
+        if (e.code !== 'EEXIST') throw e;
+        try {
+          if (Date.now() - (await stat(file)).mtimeMs > STALE_MS) await unlink(file).catch(() => {});
+        } catch {}
+        if (Date.now() - started > timeoutMs) throw new Error(`timed out waiting for lock ${name}`);
+        await new Promise((r) => setTimeout(r, 25 + Math.random() * 50));
+      }
+    }
+    try {
+      return await fn();
+    } finally {
+      await unlink(file).catch(() => {});
+    }
   }
   // Immediate children of a directory key ('' = root).
   async list(prefix = '') {

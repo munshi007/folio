@@ -325,6 +325,8 @@ function markPending(src, text) {
 }
 
 // A generated theme still carrying the PENDING description hasn't been designed yet.
+export const isPendingSource = (source) => /description:\s*'PENDING:/.test(source);
+
 export async function isPending(themeFile) {
   if (!existsSync(themeFile)) return true;
   return (await readFile(themeFile, 'utf8')).includes("description: 'PENDING:");

@@ -455,3 +455,62 @@ test('studio API: reads, guarded writes, version preview, host check', async () 
     srv.close();
   }
 });
+
+// ---- jobs -------------------------------------------------------------------------------------
+import { createJob, listJobs, claimNext, cancelJob } from '../src/jobs.js';
+
+test('jobs: parallel claims never collide, finished designs are detected, cancel archives', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-jobs-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  const store = openStore(dir);
+  const job = await createJob(store, dir, normalize(example), { count: 3, seed: 4, cli: 'folio' });
+  assert.equal(job.progress.waiting, 3);
+  const [a, b, c] = await Promise.all([claimNext(store, dir, 'a'), claimNext(store, dir, 'b'), claimNext(store, dir, 'c')]);
+  assert.equal(new Set([a.theme, b.theme, c.theme]).size, 3, 'three parallel claims, three different designs');
+  assert.equal(await claimNext(store, dir, 'd'), null, 'nothing left to claim while all are being worked on');
+  assert.match(a.brief, /Design brief/);
+  // Finish one design: drop the PENDING marker.
+  const f = join(dir, 'themes', `${c.theme}.js`);
+  writeFileSync(f, readFileSync(f, 'utf8').replace(/description: 'PENDING:[^']*'/, "description: 'done'"));
+  let [j] = await listJobs(store, dir);
+  assert.equal(j.progress.designed, 1);
+  assert.equal(j.status, 'active');
+  j = await cancelJob(store, dir, job.id);
+  assert.equal(j.status, 'cancelled');
+  const lib = await getLibrary(store);
+  assert.equal(lib.designs.filter((d) => d.archived).length, 2, 'undesigned drafts archived, not deleted');
+  assert.equal(await claimNext(store, dir), null, 'cancelled jobs hand out nothing');
+});
+
+test('jobs API validates input', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-jobsapi-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  const port = 5800 + Math.floor(Math.random() * 300);
+  const srv = await serve({ config: join(dir, 'folio.json'), port });
+  const post = (body) => fetch(`http://127.0.0.1:${port}/api/jobs`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1' }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await post({ count: 99 })).status, 400);
+    assert.equal((await post({ like: 'nope' })).status, 400);
+    assert.equal((await post({ like: 'bento', keep: 'everything' })).status, 400);
+    const ok = await post({ count: 2 });
+    assert.equal(ok.status, 200);
+    const j = await ok.json();
+    assert.equal(j.progress.total, 2);
+    assert.match(readFileSync(join(dir, '.folio', 'gen', '1', 'brief-1.md'), 'utf8'), /bin\/folio\.js" theme check/, 'briefs name a working CLI');
+    const list = await (await fetch(`http://127.0.0.1:${port}/api/jobs`)).json();
+    assert.equal(list.length, 1);
+  } finally {
+    srv.close();
+  }
+});
+
+test('jobs: claims from separate processes never collide', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-jobs-proc-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  await createJob(openStore(dir), dir, normalize(example), { count: 4, seed: 6, cli: 'folio' });
+  const bin = (await import('node:url')).fileURLToPath(new URL('../bin/folio.js', import.meta.url));
+  const { execFile } = await import('node:child_process');
+  const runOne = () => new Promise((ok, fail) => execFile(process.execPath, [bin, 'jobs', 'next', '--json', '--config', join(dir, 'folio.json')], (e, out) => (e ? fail(e) : ok(JSON.parse(out)))));
+  const got = await Promise.all([runOne(), runOne(), runOne(), runOne()]);
+  assert.equal(new Set(got.map((g) => g.theme)).size, 4, 'four processes, four different designs');
+});
