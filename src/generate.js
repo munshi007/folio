@@ -188,13 +188,13 @@ export function makeVariations(parent, { count = 3, seed = Date.now(), keep = 'v
   return out.map((v) => ({ ...v, detail: v.changes.join(' ') }));
 }
 
-export function variationMarkdown(p, run, b, total, cli, parentDescription = '') {
+export function variationMarkdown(p, run, b, total, cli, parentDescription = '', persona = null) {
   const name = themeNameFor(run, b);
   return `# Variation ${b.n}/${total}: ${b.label}
 
 ${p.name} liked the design **${b.parent}**${parentDescription ? ` (“${parentDescription}”)` : ''} and asked for more like it.
 Your file starts as an **exact copy** of it. ${total} designers are each taking it somewhere different.
-
+${personaSection(persona)}
 ## Keep (this is what they liked)
 ${KEEPS[b.keep] ?? KEEPS.vibe}.
 
@@ -210,6 +210,49 @@ Everything not under "Keep" is open. Put your version next to the original at th
 3. \`${cli} theme check ${name}\`: **0 errors required.**
 4. \`${cli} shot --theme ${name} --scheme light --pure\`, then look at the \`-part1\` screens for desktop and mobile. Any \`page script error\` line means broken JS: fix it.
 5. At most one more fix round. Reply with the theme name and one sentence on what this variation is.
+
+Full rubric: skills/folio/DESIGN.md.
+`;
+}
+
+// ---- Persona + sketch briefs ------------------------------------------------------------------
+
+// Who the person is, from their persona card, so every designer starts from the same read of them.
+export function personaSection(persona) {
+  if (!persona) return '';
+  const traits = (persona.traits || []).map((t) => `- **${t.key}:** ${t.value}${t.quote ? ` (“${t.quote}”)` : ''}`).join('\n');
+  const d = persona.dials || {};
+  return `
+## Who this is (their persona card, which they've seen and agreed with)
+**${persona.headline}** ${persona.lede || ''}
+${traits}
+- **dials (0–10):** energy ${d.energy}, warmth ${d.warmth}, tech depth ${d.techDepth}, playfulness ${d.playfulness}, formality ${d.formality}
+${(persona.implications || []).length ? `- **so the design should:** ${persona.implications.join('; ')}\n` : ''}${(persona.avoid || []).length ? `- **avoid:** ${persona.avoid.join('; ')}\n` : ''}`;
+}
+
+export function sketchBriefMarkdown(p, run, b, total, cli, persona) {
+  const name = themeNameFor(run, b);
+  const s = b.sketch;
+  return `# Build ${b.n}/${total}: from the sketch "${s.title}"
+
+${p.name} looked at quick first-screen sketches and **liked this one**. Build the full site in its language.
+${personaSection(persona)}
+## The sketch they liked (match it)
+- **Layout of the first screen:** ${s.layout}${s.note ? ` (${s.note})` : ''}
+- **Palette:** background ${s.palette.bg}, ink ${s.palette.ink}, accent ${s.palette.accent}, second accent ${s.palette.accent2}, muted ${s.palette.muted}
+- **Type:** ${s.fonts.display} (display, weight ${s.fonts.weight}${s.fonts.italic ? ', italic' : ''}${s.fonts.upper ? ', uppercase' : ''}) with ${s.fonts.text} for text
+- **Motif:** ${s.motif}
+- **Mood:** ${s.mood || 'as the sketch'}
+- See it rendered: \`${cli} sketch show ${s.id}\` prints the sketch's HTML; the Studio preview is /sketch/${s.id}
+
+The first screen of your site should be recognizably this sketch (a person who liked it must recognize it instantly). Then design everything below it in the same language: sections, rhythm, hover states, phone layout, dark mode.
+
+## Do this
+1. Edit \`themes/${name}.js\`. Keep \`meta.name = '${name}'\` and write a one-line \`meta.description\`.
+2. Rules: never hardcode anything about the person (field, role or claims): words about them come from folio.json or are computed from it. Every profile value through \`h.esc\` / \`h.inline\` / \`h.md\` / \`h.attrUrl\`; no external scripts; at most 2 font families; phones, dark and light, reduced motion, focus styles; \`h.ordered(p, sections)\`; works with JS off.
+3. \`${cli} theme check ${name}\`: **0 errors required.**
+4. \`${cli} shot --theme ${name} --scheme light --pure\`, look at the \`-part1\` and \`-part2\` screens for desktop and mobile; fix what's off. Any \`page script error\` means broken JS.
+5. At most one more fix round. Reply with the theme name and one sentence on the result.
 
 Full rubric: skills/folio/DESIGN.md.
 `;
@@ -247,7 +290,7 @@ function contentShape(p) {
   return bits.filter(Boolean).join(' · ');
 }
 
-export function briefMarkdown(p, run, b, total, cli = 'npx -y folio-site@latest') {
+export function briefMarkdown(p, run, b, total, cli = 'npx -y folio-site@latest', persona = null) {
   const name = themeNameFor(run, b);
   return `# Design brief ${b.n}/${total}: ${b.direction.name}
 
@@ -261,7 +304,7 @@ ${total} designers are working in parallel from different briefs. The point is *
 - **Palette:** ${b.palette}
 - **Type:** start from ${b.direction.fonts.join(' + ')} (Google Fonts). Swap if you find a better pairing; never Inter, Roboto, Arial, Poppins, Montserrat or Space Grotesk as the main face.
 - **Signature moment:** ${b.signature}. One memorable idea, visible on the first screen or one scroll away.
-${b.wildcard ? "- This is a **wildcard** brief: it doesn't obviously fit the person. Find the angle where it does.\n" : ''}
+${b.wildcard ? "- This is a **wildcard** brief: it doesn't obviously fit the person. Find the angle where it does.\n" : ''}${personaSection(persona)}
 ## Their content (design for what they actually have)
 ${contentShape(p)}
 
@@ -277,13 +320,15 @@ Full rubric and banned patterns: skills/folio/DESIGN.md.
 `;
 }
 
-export async function createRun(base, p, { count = 6, seed, cli, like, keep = 'vibe' } = {}) {
+export async function createRun(base, p, { count = 6, seed, cli, like, keep = 'vibe', sketches = null, persona = null } = {}) {
   const run = await nextRun(base);
   const usedSeed = seed ?? Number(createHash('sha1').update(`${Date.now()}${p.name}`).digest().readUInt32BE(0));
   let parentDescription = '';
   if (like) parentDescription = (await loadTheme(like, base)).meta.description || ''; // also validates `like`
   if (like && !KEEPS[keep]) throw new Error(`--keep must be one of: ${Object.keys(KEEPS).join(', ')}`);
-  const briefs = like ? makeVariations(like, { count, seed: usedSeed, keep }) : makeBriefs(p, { count, seed: usedSeed });
+  const briefs = sketches
+    ? sketches.map((sk, i) => ({ n: i + 1, sketch: sk, move: `from-${sk.layout}`, label: `From sketch: ${sk.title}`, detail: sk.mood }))
+    : like ? makeVariations(like, { count, seed: usedSeed, keep }) : makeBriefs(p, { count, seed: usedSeed });
   const dir = join(base, GEN_DIR, String(run));
   await mkdir(dir, { recursive: true });
   await mkdir(join(base, 'themes'), { recursive: true });
@@ -292,17 +337,17 @@ export async function createRun(base, p, { count = 6, seed, cli, like, keep = 'v
   const files = [];
   for (const b of briefs) {
     const name = themeNameFor(run, b);
-    const brief = like ? variationMarkdown(p, run, b, briefs.length, cli, parentDescription) : briefMarkdown(p, run, b, briefs.length, cli);
+    const brief = b.sketch ? sketchBriefMarkdown(p, run, b, briefs.length, cli, persona) : like ? variationMarkdown(p, run, b, briefs.length, cli, parentDescription, persona) : briefMarkdown(p, run, b, briefs.length, cli, persona);
     await writeFile(join(dir, `brief-${b.n}.md`), brief);
     const themeFile = join(base, 'themes', `${name}.js`);
     if (!existsSync(themeFile)) {
-      const pending = like ? `PENDING: ${b.label} variation of ${like}` : `PENDING: ${b.direction.name} (not designed yet)`;
+      const pending = b.sketch ? `PENDING: built from sketch ${b.sketch.title}` : like ? `PENDING: ${b.label} variation of ${like}` : `PENDING: ${b.direction.name} (not designed yet)`;
       const src = like ? await themeSource(like, name, base) : starter.replace("name: '__NAME__'", `name: '${name}'`);
       await writeFile(themeFile, markPending(src, pending));
     }
-    files.push({ name, brief: join(dir, `brief-${b.n}.md`), theme: themeFile, direction: like ? `${b.label}: ${b.detail}` : b.direction.name });
+    files.push({ name, brief: join(dir, `brief-${b.n}.md`), theme: themeFile, direction: b.sketch ? b.label : like ? `${b.label}: ${b.detail}` : b.direction.name });
   }
-  await writeFile(join(dir, 'run.json'), `${JSON.stringify({ run, seed: usedSeed, parent: like ?? null, keep: like ? keep : null, created: new Date().toISOString(), briefs: briefs.map((b) => ({ ...b, direction: b.direction?.id ?? null, theme: themeNameFor(run, b) })) }, null, 2)}\n`);
+  await writeFile(join(dir, 'run.json'), `${JSON.stringify({ run, seed: usedSeed, parent: like ?? null, keep: like ? keep : null, fromSketches: sketches ? sketches.map((k) => k.id) : null, created: new Date().toISOString(), briefs: briefs.map((b) => ({ ...b, sketch: b.sketch ? b.sketch.id : undefined, direction: b.direction?.id ?? null, theme: themeNameFor(run, b) })) }, null, 2)}\n`);
 
   // Generated drafts and screenshots don't belong in the user's git history by default.
   const gi = join(base, '.folio', '.gitignore');

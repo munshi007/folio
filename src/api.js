@@ -20,7 +20,11 @@ import { normalize, validate } from './schema.js';
 import { themes as builtins } from '../themes/index.js';
 import { getLibrary, getDesign, getVersionSource, restoreVersion, setFlag, validId } from './library.js';
 import { applyStyleChange } from './serve.js';
-import { createJob, listJobs, cancelJob, validJobId } from './jobs.js';
+import { createJob, listJobs, cancelJob, validJobId, createPersonaJob, createSketchJob } from './jobs.js';
+import { readPersona, patchPersona, restorePersona, addCorrection, QUESTIONS } from './persona.js';
+import { readRefs, setRefFlag } from './references.js';
+import { listRounds, readPicks, autoRound, pick, getSpec, tasteFrom, tasteSummary, validSpecId } from './explore.js';
+import { renderSketch } from './sketch.js';
 import { KEEPS } from './generate.js';
 import { fileURLToPath } from 'node:url';
 
@@ -65,7 +69,7 @@ async function themeFromSource(id, source) {
 export async function handleApi(req, res, url, ctx) {
   const { store, configPath, base, port } = ctx;
   const path = url.pathname;
-  if (!path.startsWith('/api/') && !path.startsWith('/preview/')) return false;
+  if (!path.startsWith('/api/') && !path.startsWith('/preview/') && !path.startsWith('/sketch/')) return false;
   if (!localHost(req)) {
     send(res, 403, { error: 'forbidden host' });
     return true;
@@ -93,6 +97,95 @@ export async function handleApi(req, res, url, ctx) {
       res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
       res.end(html);
       return true;
+    }
+
+    // Sketch preview: the first screen a spec describes, with the person's real content.
+    if (path.startsWith('/sketch/')) {
+      const id = decodeURIComponent(path.slice('/sketch/'.length));
+      const spec = validSpecId(id) ? await getSpec(store, id) : null;
+      if (!spec) return send(res, 404, { error: 'no such sketch' }), true;
+      const raw = await loadConfig(configPath);
+      res.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' });
+      res.end(renderSketch(spec, normalize(raw)));
+      return true;
+    }
+
+    // ---- persona ----
+    if (path === '/api/persona') {
+      if (req.method === 'GET') {
+        const persona = await readPersona(store);
+        return send(res, 200, { persona, questions: QUESTIONS, answers: persona?.answers ?? (await store.data.readJSON('answers.json', null)) }), true;
+      }
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      const body = await readJSONBody(req);
+      const persona = await store.data.readJSON('persona.json', null);
+      if (!persona) {
+        // Before the first read, answers are kept on their own and handed to the agent that reads the person.
+        if (!body.answers) return send(res, 400, { error: 'no persona yet: start a read first' }), true;
+        const clean = Object.fromEntries(Object.entries(QUESTIONS).map(([k, q]) => [k, (body.answers[k] || []).filter((a) => q.options.includes(a))]));
+        await store.data.writeJSON('answers.json', clean);
+        return send(res, 200, { ok: true, answers: clean }), true;
+      }
+      return send(res, 200, await patchPersona(store, body)), true;
+    }
+    if (path === '/api/persona/restore' || path === '/api/persona/correct' || path === '/api/persona/read') {
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      const body = await readJSONBody(req);
+      if (path.endsWith('restore')) return send(res, 200, await restorePersona(store, Number(body.n))), true;
+      if (path.endsWith('correct')) {
+        await addCorrection(store, body.text);
+        return send(res, 200, await createPersonaJob(store, base, { correction: String(body.text).slice(0, 300), cli: CLI })), true;
+      }
+      return send(res, 200, await createPersonaJob(store, base, { cli: CLI })), true;
+    }
+
+    // ---- references ----
+    if (path === '/api/references' && req.method === 'GET') return send(res, 200, await readRefs(store)), true;
+    const rm = path.match(/^\/api\/references\/([a-z0-9-]{1,60})\/flag$/);
+    if (rm) {
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      const body = await readJSONBody(req);
+      return send(res, 200, await setRefFlag(store, rm[1], body.flag, body.value)), true;
+    }
+
+    // ---- sketches ----
+    if (path === '/api/sketches') {
+      if (req.method === 'GET') {
+        const [rounds, picks, taste] = await Promise.all([listRounds(store), readPicks(store), tasteFrom(store)]);
+        return send(res, 200, { rounds, picks, taste: tasteSummary(taste) }), true;
+      }
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      const body = await readJSONBody(req);
+      const count = body.count == null ? 12 : Number(body.count);
+      if (!(Number.isInteger(count) && count >= 4 && count <= 24)) return send(res, 400, { error: 'count must be 4–24' }), true;
+      if (body.agent) return send(res, 200, await createSketchJob(store, base, { count, cli: CLI })), true;
+      const raw = await loadConfig(configPath);
+      const persona = await store.data.readJSON('persona.json', null);
+      const answers = persona ? null : await store.data.readJSON('answers.json', null);
+      return send(res, 200, await autoRound(store, { persona: persona ?? (answers ? { answers } : null), headline: normalize(raw).headline, count })), true;
+    }
+    if (path === '/api/sketches/build') {
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      const body = await readJSONBody(req);
+      const ids = Array.isArray(body.ids) ? body.ids.filter(validSpecId).slice(0, 6) : [];
+      if (!ids.length) return send(res, 400, { error: 'pick 1–6 sketches to build' }), true;
+      const specs = [];
+      for (const id of ids) {
+        const sp = await getSpec(store, id);
+        if (!sp) return send(res, 400, { error: `no sketch ${id}` }), true;
+        specs.push(sp);
+      }
+      const raw = await loadConfig(configPath);
+      const { errors } = validate(raw);
+      if (errors.length) return send(res, 400, { error: `fix folio.json first: ${errors.join('; ')}` }), true;
+      return send(res, 200, await createJob(store, base, normalize(raw), { sketches: specs, cli: CLI })), true;
+    }
+    const sm = path.match(/^\/api\/sketches\/([^/]+)\/pick$/);
+    if (sm) {
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      if (!validSpecId(sm[1])) return send(res, 400, { error: 'bad sketch id' }), true;
+      const body = await readJSONBody(req);
+      return send(res, 200, await pick(store, sm[1], body.value ?? null)), true;
     }
 
     if (req.method === 'GET' && path === '/api/library') {

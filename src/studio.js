@@ -88,6 +88,28 @@ aside.panel{flex:1 1 340px;min-width:0;max-width:440px;background:var(--card);bo
 .agentbox code{font:500 13px "Geist Mono",monospace;background:var(--card);border:1px solid var(--line);padding:4px 8px;border-radius:8px}
 .newrun{background:var(--card);border:1px solid var(--acc);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:12px}
 .badge.work{background:#e9ecff;color:#1d2aa8}
+.pcard{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:6px 20px 16px}
+.trait{display:grid;grid-template-columns:120px minmax(0,1fr);gap:14px;padding:14px 0;border-bottom:1px solid var(--line)}
+.trait:last-child{border-bottom:0}
+.trait .k{font:500 12px "Geist Mono",monospace;letter-spacing:.08em;text-transform:uppercase;color:var(--mute);padding-top:3px}
+.trait .v{font-size:17px;font-weight:600}
+.trait q{display:block;color:var(--mute);font-style:italic;font-size:14px}
+.trait small{font:500 11.5px "Geist Mono",monospace;color:var(--mute)}
+.dial{display:grid;grid-template-columns:110px minmax(0,1fr) 28px;gap:10px;align-items:center;font-size:14px}
+.dial input{width:100%;accent-color:var(--acc)}
+.box{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px 20px;display:flex;flex-direction:column;gap:12px}
+.cols{display:flex;flex-wrap:wrap;gap:20px;align-items:start}
+.cols>*{flex:1 1 340px;min-width:0}
+.cols>.wide{flex:3 1 460px}
+.ref{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.ref.hid{opacity:.5}
+.ref .sw{display:flex;height:56px}.ref .sw i{flex:1}
+.ref .body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px;font-size:14px}
+.ref ul{margin:0;padding-left:18px;color:var(--mute)}
+.sk .thumb{border-bottom:1px solid var(--line)}
+.sk.liked{border-color:#9ad72a;box-shadow:0 0 0 1px #9ad72a}
+.sk.skipped{opacity:.45}
+.buildbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;padding:14px 18px;border-radius:16px;background:#17171a;color:#fff}
 .toast{position:fixed;left:0;right:0;margin:0 auto;width:max-content;max-width:calc(100vw - 32px);bottom:24px;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:500;opacity:0;transform:translateY(16px);transition:all .25s;pointer-events:none}
 .toast.on{opacity:1;transform:none}
 @media (max-width:760px){main{padding:24px 16px 60px}nav.side{max-width:none;border-right:0;border-bottom:1px solid var(--line)}}
@@ -107,6 +129,10 @@ function h(tag, attrs, ...kids) {
   }
   for (const kid of kids.flat()) if (kid != null && kid !== false) el.append(kid.nodeType ? kid : document.createTextNode(String(kid)));
   return el;
+}
+// Like el.replaceChildren, but flattens arrays and skips null/false (the native one prints "null").
+function fill(el, ...kids) {
+  el.replaceChildren(...kids.flat(Infinity).filter((k) => k != null && k !== false));
 }
 const toastEl = $('.toast');
 function toast(t) { toastEl.textContent = t; toastEl.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => toastEl.classList.remove('on'), 2000); }
@@ -131,6 +157,8 @@ const titleOf = (d) => d.label || (d.direction ? d.direction.replace(/-/g, ' ').
 const ago = (iso) => { const s = (Date.now() - new Date(iso)) / 1000; return s < 60 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : s < 86400 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' days ago'; };
 
 let state = { filter: 'all', jobs: [], itemState: {} };
+const view = new URLSearchParams(location.search).get('view') || (new URLSearchParams(location.search).get('d') ? 'design' : 'library');
+for (const a of document.querySelectorAll('[data-view]')) if (a.dataset.view === view || (view === 'design' && a.dataset.view === 'library')) a.setAttribute('aria-current', 'page');
 const params = new URLSearchParams(location.search);
 
 async function useDesign(id) {
@@ -174,10 +202,11 @@ function newRunPanel() {
 }
 function jobCard(j) {
   const p = j.progress;
-  const what = j.kind === 'variations' ? 'More like ' + j.like + ' (keep ' + j.keep + ')' : p.total + ' new directions';
-  return h('section', { class: 'job', 'aria-label': 'Round ' + j.run + ' progress' },
+  const what = j.kind === 'variations' ? 'More like ' + j.like + ' (keep ' + j.keep + ')' : j.kind === 'from-sketches' ? 'Building ' + p.total + ' liked sketches' : p.total + ' new directions';
+  const title = j.kind === 'persona' ? (j.correction ? 'Persona re-read: “' + j.correction + '”' : 'Reading your profile') : j.kind === 'sketches' ? 'Your agent is inventing sketches' : 'Round ' + j.run + ' · ' + what;
+  return h('section', { class: 'job', 'aria-label': title },
     h('div', { class: 'row between' },
-      h('b', null, 'Round ' + j.run + ' · ' + what),
+      h('b', null, title),
       h('span', { class: 'mono' }, p.designed + ' designed · ' + p.working + ' working · ' + p.waiting + ' waiting' + (p.failed ? ' · ' + p.failed + ' need fixes' : ''))),
     h('div', { class: 'bar', role: 'img', 'aria-label': p.designed + ' of ' + p.total + ' designed' }, j.items.map((i) => h('i', { class: i.state, title: i.theme + ': ' + i.state }))),
     p.waiting ? agentBox() : null,
@@ -206,7 +235,7 @@ function card(d) {
 
 function renderLibrary(lib) {
   const main = $('main');
-  main.replaceChildren();
+  fill(main, );
   const first = (lib.profile.name || 'Your').split(/\s+/)[0];
   const visible = lib.designs.filter((d) => state.filter === 'archived' ? d.archived : state.filter === 'favorites' ? d.favorite && !d.archived : !d.archived);
   const built = lib.designs.filter((d) => !d.pending && !d.archived).length;
@@ -217,7 +246,7 @@ function renderLibrary(lib) {
       h('div', { class: 'row' },
         h('button', { class: 'btn pri', type: 'button', onclick: () => { state.newRun = true; refresh(); } }, 'New round of designs'))));
   if (state.newRun) main.append(newRunPanel());
-  const active = state.jobs.filter((j) => j.status === 'active');
+  const active = state.jobs.filter((j) => j.status === 'active' && j.kind !== 'persona' && j.kind !== 'sketches');
   if (active.length) main.append(h('div', { class: 'jobs' }, active.map(jobCard)));
 
   const cur = lib.designs.find((d) => d.current) || null;
@@ -265,7 +294,7 @@ async function renderDesign(id) {
   const sel = state.v && d.versions.some((v) => v.n === state.v) ? state.v : (d.versions[0] ? d.versions[0].n : null);
   const latest = d.versions[0] ? d.versions[0].n : null;
   const device = state.device || 'desk';
-  main.replaceChildren(
+  fill(main, 
     h('header', { class: 'row between' },
       h('div', null,
         h('a', { href: '/studio' }, '← Library'),
@@ -303,14 +332,125 @@ async function renderDesign(id) {
         h('button', { class: 'btn', type: 'button', onclick: () => flag(id, 'archived', !d.archived).then(() => renderDesign(id)) }, d.archived ? 'Unarchive' : 'Archive'))));
 }
 
+function jobsOf(kinds) {
+  const act = state.jobs.filter((j) => j.status === 'active' && kinds.includes(j.kind));
+  return act.length ? h('div', { class: 'jobs' }, act.map(jobCard)) : null;
+}
+
+async function renderPersona() {
+  const [{ persona, questions, answers }, refs] = await Promise.all([api('/api/persona'), api('/api/references')]);
+  const main = $('main');
+  const ans = (persona ? persona.answers : answers) || {};
+  const qBlock = h('div', { class: 'box' }, h('b', null, 'Three quick questions'),
+    h('p', { class: 'sub', style: 'margin:0' }, 'A CV is written in your most formal voice. These show who you are, so designs don\'t come out too serious.'),
+    Object.entries(questions).map(([k, q]) => h('fieldset', { style: 'border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:8px' },
+      h('legend', { style: 'font-weight:500;padding:0;margin-bottom:6px' }, q.title),
+      h('div', { class: 'row' }, q.options.map((o) => { const on = (ans[k] || []).includes(o); return h('button', { class: 'chip', type: 'button', 'aria-pressed': String(on), onclick: async () => {
+        const next = { ...ans, [k]: on ? (ans[k] || []).filter((x) => x !== o) : [...(ans[k] || []), o] };
+        try { await api('/api/persona', { answers: next }); renderPersona(); } catch (e) { toast(e.message); } } }, o); })))));
+
+  if (!persona) {
+    fill(main, 
+      h('header', null, h('h1', null, 'How we read you'), h('p', { class: 'sub' }, 'Your agent reads your resume and repos, then writes a persona card you can see and correct. Every design starts from it.')),
+      jobsOf(['persona']),
+      h('div', { class: 'cols' }, qBlock,
+        h('div', { class: 'box' }, h('b', null, 'Read me'), h('p', { class: 'sub', style: 'margin:0' }, 'Starts a job for your agent. Answer the questions first if you can; it will use them.'),
+          h('div', { class: 'row' }, h('button', { class: 'btn pri', type: 'button', onclick: async () => { try { await api('/api/persona/read', {}); toast('Ready for your agent'); refresh(); } catch (e) { toast(e.message); } } }, 'Ask my agent to read me')))));
+    return;
+  }
+  const dial = (k, label) => h('label', { class: 'dial' }, label,
+    h('input', { type: 'range', min: '0', max: '10', value: String(persona.dials[k]), 'aria-label': label, onchange: async (e) => { try { await api('/api/persona', { dials: { [k]: Number(e.target.value) } }); toast(label + ' saved'); refresh(); } catch (err) { toast(err.message); } } }),
+    h('span', { class: 'mono' }, String(persona.dials[k])));
+  const fix = h('input', { id: 'fix', placeholder: 'e.g. warmer than that, or: I\'m funnier than this', style: 'flex:1 1 240px;min-height:44px;border:1px solid var(--line2);border-radius:10px;padding:0 12px;font:inherit;background:var(--card);color:var(--ink)' });
+  const worldIn = h('input', { 'aria-label': 'Add a world', placeholder: 'add a world', style: 'min-height:36px;border:1px dashed var(--line2);border-radius:999px;padding:0 12px;font:inherit;font-size:14px;background:transparent;color:var(--ink);width:150px' });
+  const saveWorlds = async (w) => { try { await api('/api/persona', { worlds: w }); refresh(); } catch (e) { toast(e.message); } };
+  fill(main, 
+    h('header', { class: 'row between' },
+      h('div', null, h('p', { class: 'mono', style: 'margin:0' }, 'How we read you · v' + persona.n), h('h1', { style: 'margin-top:6px' }, persona.headline), h('p', { class: 'sub' }, persona.lede)),
+      h('a', { class: 'btn pri', href: '/studio?view=explore' }, 'Show me designs →')),
+    jobsOf(['persona']),
+    h('div', { class: 'cols' },
+      h('div', { class: 'wide', style: 'display:flex;flex-direction:column;gap:16px' },
+        h('div', { class: 'pcard' }, persona.traits.map((t) => h('div', { class: 'trait' }, h('span', { class: 'k' }, t.key),
+          h('div', null, h('div', { class: 'v' }, t.value), t.quote ? h('q', null, t.quote) : null, h('small', null, 'from ' + (t.source === 'you' ? 'you' : 'your ' + t.source)))))),
+        h('div', { class: 'box' }, h('label', { for: 'fix', style: 'font-weight:500' }, 'Something off? One line is enough.'),
+          h('div', { class: 'row' }, fix, h('button', { class: 'btn dark', type: 'button', onclick: async () => { if (!fix.value.trim()) return toast('Say what is off first'); try { await api('/api/persona/correct', { text: fix.value }); toast('Sent to your agent as a re-read'); refresh(); } catch (e) { toast(e.message); } } }, 'Re-read me'))),
+        (persona.implications || []).length ? h('div', { class: 'box' }, h('b', null, 'So the design should'), h('ul', { style: 'margin:0;padding-left:18px' }, persona.implications.map((x) => h('li', null, x))),
+          (persona.avoid || []).length ? h('p', { class: 'sub', style: 'margin:0' }, 'Avoid: ' + persona.avoid.join(' · ')) : null) : null),
+      h('div', { style: 'display:flex;flex-direction:column;gap:16px' },
+        h('div', { class: 'box' }, h('b', null, 'Dials'), dial('energy', 'Energy'), dial('warmth', 'Warmth'), dial('techDepth', 'Tech depth'), dial('playfulness', 'Playfulness'), dial('formality', 'Formality')),
+        h('div', { class: 'box' }, h('b', null, 'Your worlds'), h('div', { class: 'row' },
+          persona.worlds.map((w) => h('button', { class: 'chip', type: 'button', 'aria-label': 'Remove ' + w, onclick: () => saveWorlds(persona.worlds.filter((x) => x !== w)) }, w + ' ×')),
+          h('form', { onsubmit: (e) => { e.preventDefault(); if (worldIn.value.trim()) saveWorlds([...persona.worlds, worldIn.value.trim()]); } }, worldIn))),
+        h('div', { class: 'box' }, h('b', null, 'Versions'), h('ol', { class: 'hist' }, persona.versions.slice(0, 6).map((v, i) => h('li', null, h('b', { class: 'mono' }, 'v' + v.n), h('span', null, v.note, h('small', null, ago(v.at))),
+          i === 0 ? h('span', { class: 'mono' }, 'current') : h('button', { class: 'btn', type: 'button', onclick: async () => { try { await api('/api/persona/restore', { n: v.n }); toast('Restored v' + v.n); refresh(); } catch (e) { toast(e.message); } } }, 'Restore'))))))),
+    qBlock,
+    h('section', { class: 'section' }, h('div', { class: 'h' }, h('h2', null, 'Reference board'), h('span', { class: 'mono' }, 'principles from your worlds · credited · nothing copied')),
+      refs.length ? h('div', { class: 'grid' }, refs.map((r) => h('article', { class: 'ref' + (r.hidden ? ' hid' : '') },
+        r.specimen && r.specimen.colors.length ? h('div', { class: 'sw' }, r.specimen.colors.map((c) => { const i = h('i'); i.style.background = c; return i; })) : null,
+        h('div', { class: 'body' }, h('div', { class: 'row between' }, h('b', null, r.title), h('span', { class: 'mono' }, r.world)),
+          r.why ? h('span', { class: 'sub', style: 'margin:0' }, r.why) : null,
+          h('ul', null, r.principles.map((x) => h('li', null, x))),
+          h('span', { class: 'mono' }, r.kind + (r.license ? ' · ' + r.license : '')),
+          h('div', { class: 'acts' },
+            r.url ? h('a', { class: 'btn', href: r.url, target: '_blank', rel: 'noopener noreferrer' }, 'Source ↗') : null,
+            h('button', { class: 'btn star', type: 'button', 'aria-pressed': String(!!r.pinned), onclick: async () => { await api('/api/references/' + r.id + '/flag', { flag: 'pinned', value: !r.pinned }); refresh(); } }, r.pinned ? '★ Pinned' : '☆ Pin'),
+            h('button', { class: 'btn', type: 'button', onclick: async () => { await api('/api/references/' + r.id + '/flag', { flag: 'hidden', value: !r.hidden }); refresh(); } }, r.hidden ? 'Show' : 'Hide')))))) :
+        h('div', { class: 'empty' }, 'No references yet. Your agent adds them from open archives and web sources that allow it (folio refs add).')));
+}
+
+function sketchThumb(id) {
+  const box = h('div', { class: 'thumb' });
+  const f = h('iframe', { src: '/sketch/' + encodeURIComponent(id), sandbox: 'allow-scripts', loading: 'lazy', tabindex: '-1', title: 'sketch ' + id, 'aria-hidden': 'true' });
+  box.append(f);
+  new ResizeObserver(() => { f.style.transform = 'scale(' + (box.clientWidth / 1440) + ')'; }).observe(box);
+  return box;
+}
+
+async function renderExplore() {
+  const data = await api('/api/sketches');
+  const main = $('main');
+  const liked = Object.keys(data.picks.liked);
+  const pickIt = async (id, value) => { try { await api('/api/sketches/' + id + '/pick', { value }); refresh(); } catch (e) { toast(e.message); } };
+  const newRound = async (agent) => { try { const r = await api('/api/sketches', agent ? { count: 12, agent: true } : { count: 12 }); toast(agent ? 'Ready for your agent: it will invent 12 sketches' : 'Round ' + r.round + ': ' + r.specs.length + ' new sketches'); refresh(); } catch (e) { toast(e.message); } };
+  fill(main, 
+    h('header', { class: 'row between' },
+      h('div', null, h('h1', null, 'Which of these feel like you?'),
+        h('p', { class: 'sub' }, 'First screens only: quick to make, quick to throw away. Like the ones that click; only those get built into full sites.')),
+      h('div', { class: 'box', style: 'min-width:260px' }, h('b', null, 'Your taste so far'),
+        data.taste.likes.length || data.taste.dislikes.length
+          ? [h('span', null, 'Leaning ', h('b', null, data.taste.likes.join(', ') || '…')), data.taste.dislikes.length ? h('span', { class: 'sub', style: 'margin:0' }, 'Less ' + data.taste.dislikes.join(', ')) : null]
+          : h('span', { class: 'sub', style: 'margin:0' }, 'Like or skip a few sketches and folio learns.'))),
+    jobsOf(['sketches', 'from-sketches']),
+    h('div', { class: 'row' },
+      h('button', { class: 'btn pri', type: 'button', onclick: () => newRound(false) }, '12 instant sketches'),
+      h('button', { class: 'btn', type: 'button', onclick: () => newRound(true) }, 'Ask my agent for 12 inventive ones'),
+      h('span', { class: 'mono' }, 'instant ones come from your persona and likes; every 4th is a wildcard')),
+    liked.length ? h('div', { class: 'buildbar' }, h('span', null, h('b', null, liked.length + ' liked'), ' · skipped ones stay here, nothing is lost'),
+      h('button', { class: 'btn lime', type: 'button', onclick: async () => { try { const j = await api('/api/sketches/build', { ids: liked.slice(0, 6) }); toast('Round ' + j.run + ': building ' + j.progress.total + ' full sites, ready for your agent'); location.href = '/studio'; } catch (e) { toast(e.message); } } }, 'Build ' + Math.min(liked.length, 6) + ' full sites')) : null,
+    data.rounds.length ? data.rounds.map((r) => h('section', { class: 'section' },
+      h('div', { class: 'h' }, h('h2', null, 'Sketch round ' + r.round), h('span', { class: 'mono' }, (r.source === 'agent' ? 'invented by your agent' : 'instant') + ' · ' + ago(r.createdAt))),
+      h('div', { class: 'grid' }, r.specs.map((sp) => {
+        const on = !!data.picks.liked[sp.id], off = !!data.picks.skipped[sp.id];
+        return h('article', { class: 'card sk' + (on ? ' liked' : '') + (off ? ' skipped' : '') }, sketchThumb(sp.id),
+          h('div', { class: 'body' }, h('div', { class: 'top' }, h('b', null, sp.title), sp.wild ? h('span', { class: 'badge wild' }, 'wildcard') : null),
+            h('span', { class: 'desc', style: 'min-height:0' }, sp.note || sp.mood),
+            h('div', { class: 'acts' },
+              h('button', { class: 'btn' + (on ? ' lime' : ''), type: 'button', 'aria-pressed': String(on), onclick: () => pickIt(sp.id, on ? null : 'like') }, on ? '♥ Liked' : '♡ Like'),
+              h('button', { class: 'btn', type: 'button', 'aria-label': (off ? 'Unskip ' : 'Skip ') + sp.title, onclick: () => pickIt(sp.id, off ? null : 'skip') }, off ? '↺' : '×'))));
+      })))) : h('div', { class: 'empty' }, 'No sketches yet. Start with 12 instant ones above: they take a second.'));
+}
+
 async function refresh() {
   try {
     state.jobs = await api('/api/jobs');
     state.itemState = {};
     for (const j of state.jobs) if (j.status === 'active') for (const i of j.items) state.itemState[i.theme] = i.state;
-    if (params.get('d')) await renderDesign(params.get('d'));
+    if (view === 'persona') await renderPersona();
+    else if (view === 'explore') await renderExplore();
+    else if (params.get('d')) await renderDesign(params.get('d'));
     else renderLibrary(await api('/api/library'));
-  } catch (e) { $('main').replaceChildren(h('div', { class: 'empty' }, 'Could not load: ' + e.message)); }
+  } catch (e) { fill($('main'), h('div', { class: 'empty' }, 'Could not load: ' + e.message)); }
   // Claims don't touch watched files, so poll gently while a round is running.
   clearTimeout(refresh.t);
   if (state.jobs.some((j) => j.status === 'active')) refresh.t = setTimeout(refresh, 5000);
@@ -333,10 +473,10 @@ export function studioPage({ boot }) {
   <nav class="side" aria-label="Folio">
     <div class="logo">✦ folio <span>studio</span></div>
     <div class="nav">
-      <a href="/studio" aria-current="page">Library</a>
+      <a href="/studio" data-view="library">Library</a>
+      <a href="/studio?view=persona" data-view="persona">Persona</a>
+      <a href="/studio?view=explore" data-view="explore">Explore</a>
       <a href="/" target="_blank" rel="noopener">My site ↗</a>
-      <a href="/__folio/gallery">Gallery</a>
-      <span>Explore <small>soon</small></span>
       <span>Publish <small>soon</small></span>
     </div>
   </nav>

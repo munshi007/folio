@@ -514,3 +514,116 @@ test('jobs: claims from separate processes never collide', async () => {
   const got = await Promise.all([runOne(), runOne(), runOne(), runOne()]);
   assert.equal(new Set(got.map((g) => g.theme)).size, 4, 'four processes, four different designs');
 });
+
+// ---- persona, references, sketches -------------------------------------------------------------
+import { writePersona, readPersona, patchPersona, restorePersona, validatePersona } from '../src/persona.js';
+import { addRefs, readRefs, setRefFlag, validateRefs } from '../src/references.js';
+import { renderSketch, validateSpec, autoSpecs, fingerprint, normalizeSpec, LAYOUTS } from '../src/sketch.js';
+import { autoRound, agentRound, pick as pickSketch, tasteFrom, listRounds } from '../src/explore.js';
+
+const PERSONA = {
+  headline: 'Makes slow things fast',
+  lede: 'A builder.',
+  traits: [{ key: 'mood', value: 'Energized, warm', quote: 'I like making slow things fast', source: 'resume' }],
+  dials: { energy: 8, warmth: 7, techDepth: 7, playfulness: 6, formality: 3 },
+  worlds: ['developer tools', 'transit'],
+  answers: { feel: ['Energized'], show: [], taste: ['Light & airy', 'Colorful & bold'] },
+};
+
+test('persona: validated, versioned, patchable, restorable', async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), 'folio-persona-')));
+  assert.ok(validatePersona({}).length >= 2);
+  assert.ok(validatePersona({ ...PERSONA, dials: { energy: 11 } }).some((e) => e.startsWith('dials.energy')));
+  assert.ok(validatePersona({ ...PERSONA, answers: { feel: ['Grumpy'] } }).some((e) => e.startsWith('answers.feel')));
+  await writePersona(store, PERSONA, 'agent read');
+  await patchPersona(store, { dials: { warmth: 9 } });
+  let p = await readPersona(store);
+  assert.equal(p.n, 2);
+  assert.equal(p.dials.warmth, 9);
+  assert.equal(p.dials.energy, 8, 'other dials kept');
+  await restorePersona(store, 1);
+  p = await readPersona(store);
+  assert.equal(p.n, 3);
+  assert.equal(p.dials.warmth, 7);
+  assert.equal(p.versions.length, 3);
+});
+
+test('references: principles + credit only, never copies; flags survive updates', async () => {
+  const store = openStore(mkdtempSync(join(tmpdir(), 'folio-refs-')));
+  const ok = { title: 'Transit maps', kind: 'web', url: 'https://example.com/map', world: 'transit', principles: ['thick colored lines'], specimen: { colors: ['#da251d'] } };
+  assert.ok(validateRefs([{ ...ok, image: 'data:...' }]).some((e) => e.includes("don't store images")));
+  assert.ok(validateRefs([{ ...ok, url: 'javascript:alert(1)' }]).some((e) => e.includes('.url')));
+  assert.ok(validateRefs([{ ...ok, principles: [] }]).some((e) => e.includes('principles')));
+  await addRefs(store, [ok]);
+  await setRefFlag(store, 'transit-maps', 'pinned', true);
+  await addRefs(store, [{ ...ok, principles: ['thick colored lines', 'round stations'] }]);
+  const refs = await readRefs(store);
+  assert.equal(refs.length, 1);
+  assert.equal(refs[0].pinned, true);
+  assert.equal(refs[0].principles.length, 2);
+});
+
+test('sketches: render safely, every layout works, auto rounds never repeat, taste moves toward likes', async () => {
+  const profile = normalize({ ...example, name: 'Maya <img src=x onerror=alert(1)>' });
+  for (const layout of LAYOUTS) {
+    const spec = { title: 'T', layout, motif: 'dots', palette: { bg: '#ffffff', ink: '#111111', accent: '#2f3fe0' }, fonts: { display: layout === 'terminal' ? 'JetBrains Mono' : 'Fraunces', text: 'Figtree' } };
+    assert.deepEqual(validateSpec(spec), [], layout);
+    const html = renderSketch(spec, profile);
+    assert.ok(!html.includes('<img src=x'), `${layout}: name escaped`);
+    assert.match(html, /quickdiff|StudyBuddy/, `${layout}: shows real projects`);
+  }
+  assert.ok(validateSpec({ title: 'x', layout: 'statement', palette: { bg: 'red;}', ink: '#000000', accent: '#000000' }, fonts: { display: 'Fraunces', text: 'Figtree' } }).some((e) => e.includes('palette.bg')));
+  assert.ok(validateSpec({ title: 'x', layout: 'statement', palette: { bg: '#ffffff', ink: '#000000', accent: '#000000' }, fonts: { display: "x');}", text: 'Figtree' } }).some((e) => e.includes('fonts.display')));
+  assert.ok(validateSpec({ title: 'x', layout: 'statement', palette: { bg: '#ffffff', ink: '#000000', accent: '#000000' }, fonts: { display: 'Inter', text: 'Figtree' } }).some((e) => e.includes('generic')));
+
+  // Someone who wants light and said to avoid dark gets mostly light sketches (wildcards may still be dark).
+  const lightFan = { ...PERSONA, avoid: ['all-dark monochrome'] };
+  const lit = autoSpecs({ persona: lightFan, count: 12, seed: 11 });
+  assert.ok(lit.filter((x) => !x.wild && x.tags.includes('dark')).length <= 1, 'non-wildcard sketches respect "avoid dark"');
+  const specs = autoSpecs({ persona: PERSONA, count: 12, seed: 3 });
+  assert.equal(specs.length, 12);
+  assert.equal(new Set(specs.slice(0, 8).map((s) => s.layout)).size, 8, 'the first 8 sketches use all 8 layouts');
+  assert.ok(specs.some((s) => s.wild), 'includes wildcards');
+  for (const s of specs) assert.deepEqual(validateSpec(s), []);
+
+  const store = openStore(mkdtempSync(join(tmpdir(), 'folio-explore-')));
+  const r1 = await autoRound(store, { persona: PERSONA, count: 12, seed: 5 });
+  const r2 = await autoRound(store, { persona: PERSONA, count: 12, seed: 5 });
+  const fp = (r) => r.specs.map((s) => fingerprint(s));
+  assert.equal(new Set([...fp(r1), ...fp(r2)]).size, 24, 'no sketch repeats across rounds, even with the same seed');
+  // Like every light sketch, skip every dark one: taste must lean light.
+  for (const s of r1.specs) await pickSketch(store, s.id, s.tags.includes('light') ? 'like' : 'skip');
+  const taste = await tasteFrom(store);
+  assert.ok((taste.light || 0) > 0 && (taste.dark || 0) < 0);
+  await assert.rejects(agentRound(store, [{ title: 'bad', layout: 'nope' }]));
+  const ar = await agentRound(store, [{ title: 'Agent idea', layout: 'poster', motif: 'shapes', palette: { bg: '#f4f1ea', ink: '#111111', accent: '#e2361f' }, fonts: { display: 'Jost', text: 'Jost' } }]);
+  assert.equal(ar.specs[0].source, 'agent');
+  assert.equal((await listRounds(store)).length, 3);
+});
+
+test('studio API: persona answers before a read, sketches round + build job', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-front-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  const port = 6100 + Math.floor(Math.random() * 300);
+  const srv = await serve({ config: join(dir, 'folio.json'), port });
+  const base = `http://127.0.0.1:${port}`;
+  const post = (path, body) => fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1' }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await post('/api/persona', { answers: { taste: ['Light & airy', 'Nope'] } })).status, 200);
+    assert.deepEqual(JSON.parse(readFileSync(join(dir, '.folio', 'answers.json'), 'utf8')).taste, ['Light & airy']);
+    const job = await (await post('/api/persona/read', {})).json();
+    assert.equal(job.kind, 'persona');
+    assert.match(readFileSync(join(dir, '.folio', 'jobs', `${job.id}-brief.md`), 'utf8'), /Light & airy/, 'the agent gets their answers');
+    const round = await (await post('/api/sketches', { count: 8 })).json();
+    assert.equal(round.specs.length, 8);
+    assert.match(await (await fetch(`${base}/sketch/${round.specs[0].id}`)).text(), /Maya(<br>| )Okafor/);
+    assert.equal((await fetch(`${base}/sketch/..%2Fx`)).status, 404);
+    assert.equal((await post(`/api/sketches/${round.specs[0].id}/pick`, { value: 'like' })).status, 200);
+    const built = await (await post('/api/sketches/build', { ids: [round.specs[0].id] })).json();
+    assert.equal(built.kind, 'from-sketches');
+    assert.match(readFileSync(join(dir, '.folio', 'gen', String(built.run), 'brief-1.md'), 'utf8'), /liked this one/);
+    assert.equal((await post('/api/sketches', { count: 99 })).status, 400);
+  } finally {
+    srv.close();
+  }
+});

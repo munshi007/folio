@@ -40,24 +40,28 @@ If they have nothing but a GitHub username, that's enough to start.
 - **skills**: group as Languages / Frameworks / Tools (or similar). 5–8 items per group, strongest first. Drop filler (MS Office, "Teamwork").
 - Students: education goes in, with notable coursework/honours in `details`. Hackathon wins → `awards`.
 
-### 4. Generate designs (the main path)
-Follow [GENERATE.md](GENERATE.md):
-1. `folio generate` (6 by default) writes deliberately different briefs.
-2. You design them, one subagent per brief in parallel if you can.
-3. Start `folio dev` and give the user **http://localhost:4321/__folio/gallery** right away; designs appear as they land.
-4. When they find one they like, offer "more like this": ask what they like about it, then `folio generate --like <design> --keep <what>`.
+### 4. Read the person (persona), then gather references
+Follow [PERSONA.md](PERSONA.md). In short:
+1. If they haven't answered the three taste questions, ask them (or point them to Studio → Persona). A CV alone makes every persona too serious.
+2. Write the persona (headline, traits **with their own words as quotes**, dials, worlds, implications, avoid) and save it with `folio persona write <file.json>`. Show them Studio → Persona and invite a one-line correction.
+3. Gather 6–12 references from **their worlds** (not other portfolios) using open sources and normal web search that respects each site's rules; save principles + credit with `folio refs add <file.json>`. Never store images or copied text.
 
-For a specific change to one design ("smaller name, louder projects"), edit that design file directly following [DESIGN.md](DESIGN.md)'s check → `folio shot` → critique loop.
+### 5. Sketch, then build what they like
+1. `folio sketch auto` gives 12 instant first-screen sketches from the persona (no agent work). If you have time, also invent 12 with real range (PERSONA.md, "Inventing sketches") and add them with `folio sketch add <file.json>`.
+2. Send them to **Studio → Explore** (`folio studio`): they like or skip; folio learns their taste and the next instant round leans toward it.
+3. When they hit "Build full sites", it becomes a job: claim designs with `folio jobs next` and build each one in the language of the sketch they liked ([GENERATE.md](GENERATE.md) covers jobs and parallel subagents).
 
-**Fallback (no time, no subagents, or they just want something now):** the built-ins. `folio themes` lists them. `bento` suits students, full-stack and product folks; `editorial` writers, researchers and PMs; `terminal` systems and infra; `blueprint` data and ML. Set `"accent": "#hex"` for a brand color.
+For a specific change to one design ("smaller name, louder projects"), edit that design file directly following [DESIGN.md](DESIGN.md)'s check → `folio shot` → critique loop. "More like this" (keep what they like, change two big things) is in GENERATE.md.
 
-### 5. Preview and iterate
+**Fallback (no time or no agent capacity):** the built-ins. `folio themes` lists them. `bento` suits students, full-stack and product folks; `editorial` writers, researchers and PMs; `terminal` systems and infra; `blueprint` data and ML. Set `"accent": "#hex"` for a brand color.
+
+### 6. Preview and iterate
 - Run `folio dev` in the background and give the user the URL (`http://localhost:4321`; the gallery is at `/__folio/gallery`). The control bar at the bottom switches designs, light/dark, font and section order, and saves to `folio.json`.
 - Look at the page yourself before showing it: `folio shot --theme <name>` writes desktop and phone screenshots (one image per real screen) and reports page script errors. Fix anything awkward: overly long descriptions, a project with no description, an orphaned card.
 - Run `folio validate` and address warnings.
 - Iterate on their feedback by editing `folio.json`; the preview reloads automatically.
 
-### 6. Deploy (only when the user says so)
+### 7. Deploy (only when the user says so)
 `folio deploy` builds and force-pushes the site to the `gh-pages` branch of the repo's `origin` and tries to enable GitHub Pages. Before running it:
 - Confirm the user wants it public, and which repo. For a root URL (`https://<user>.github.io/`) the repo must be named `<user>.github.io`.
 - If there's no git repo/remote: `git init && gh repo create <name> --public --source=. --push` (ask first — this creates a public repo).

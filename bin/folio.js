@@ -19,6 +19,10 @@ import { execFile } from 'node:child_process';
 import { openStore } from '../src/store.js';
 import { recordPublish } from '../src/library.js';
 import { createJob, listJobs, claimNext, cancelJob, validJobId } from '../src/jobs.js';
+import { readPersona, writePersona } from '../src/persona.js';
+import { readRefs, addRefs } from '../src/references.js';
+import { agentRound, autoRound, getSpec } from '../src/explore.js';
+import { renderSketch } from '../src/sketch.js';
 
 const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -46,6 +50,12 @@ ${c.b('Generate designs')}
   folio jobs [next [--json] | cancel <id>]        generation progress; agents claim the next design to make
   folio pick <theme> [--as <name>]                keep a design (optionally rename it), set it in folio.json
   ${c.dim('watch them land live: folio dev → http://localhost:4321/__folio/gallery')}
+
+${c.b('Persona, references, sketches')} ${c.dim('(agents write these; you see and correct them in Studio)')}
+  folio persona [write <file.json>] [--json]       how folio reads you; every version kept
+  folio refs [add <file.json>]                    reference board: principles from your worlds, with credit
+  folio sketch auto [--count 12]                  instant first-screen sketches from your persona + taste
+  folio sketch add <file.json> | show <id>        add agent-invented sketch specs; print one as HTML
 
 ${c.b('Design your own theme')}
   folio theme new <name> [--from <theme>]         scaffold themes/<name>.js (from the starter or a built-in)
@@ -234,6 +244,71 @@ async function cmdGenerate(args, config) {
   console.log(`  ${c.b('You:')} ${c.b('folio studio')}. Progress and designs appear live.`);
 }
 
+// Read a JSON file an agent wrote (or "-" for stdin).
+async function readJSONArg(file) {
+  if (!file) throw new FolioError('expected a JSON file path (or - for stdin)');
+  let text;
+  if (file === '-') {
+    text = '';
+    for await (const chunk of process.stdin) text += chunk;
+  } else {
+    text = await readFile(resolve(file), 'utf8');
+  }
+  try {
+    return JSON.parse(text);
+  } catch (e) {
+    throw new FolioError(`${file} is not valid JSON: ${e.message}`);
+  }
+}
+
+async function cmdPersona(args, config) {
+  const store = openStore(dirname(config));
+  const sub = args._[1];
+  if (sub === 'write') {
+    const p = await writePersona(store, await readJSONArg(args._[2]), typeof args.note === 'string' ? args.note : 'agent read');
+    return console.log(`${c.g('✓')} persona v${p.n} saved: ${c.b(p.headline)} ${c.dim('(shown in Studio → Persona; every version kept)')}`);
+  }
+  const p = await readPersona(store);
+  if (!p) return console.log(c.dim('  no persona yet · an agent writes one with folio persona write <file.json>'));
+  if (args.json) return console.log(JSON.stringify(p, null, 2));
+  console.log(`  ${c.b(p.headline)} ${c.dim(`v${p.n}`)}\n  ${p.lede}`);
+  for (const t of p.traits) console.log(`  ${c.m(t.key.padEnd(10))} ${t.value}`);
+  console.log(`  ${c.dim('dials')}      ${Object.entries(p.dials).map(([k, v]) => `${k} ${v}`).join(' · ')}`);
+  if (p.corrections?.length) console.log(`  ${c.y('corrections')} ${p.corrections.map((x) => `"${x.text}"`).join(', ')}`);
+}
+
+async function cmdRefs(args, config) {
+  const store = openStore(dirname(config));
+  if (args._[1] === 'add') {
+    const all = await addRefs(store, await readJSONArg(args._[2]));
+    return console.log(`${c.g('✓')} ${all.length} reference(s) on the board ${c.dim('(principles + credit only; see Studio → Persona)')}`);
+  }
+  const refs = await readRefs(store);
+  if (!refs.length) return console.log(c.dim('  no references yet · an agent adds them with folio refs add <file.json>'));
+  for (const r of refs) console.log(`  ${r.pinned ? c.y('★') : ' '} ${c.b(r.id.padEnd(24))} ${r.world.padEnd(18)} ${r.hidden ? c.dim('(hidden) ') : ''}${r.principles[0] ?? ''}`);
+}
+
+async function cmdSketch(args, config) {
+  const base = dirname(config);
+  const store = openStore(base);
+  const sub = args._[1];
+  if (sub === 'add') {
+    const r = await agentRound(store, await readJSONArg(args._[2]));
+    return console.log(`${c.g('✓')} sketch round ${r.round}: ${r.specs.length} sketches ${c.dim('(Studio → Explore shows them now)')}`);
+  }
+  if (sub === 'auto') {
+    const raw = await loadConfig(config);
+    const r = await autoRound(store, { persona: await store.data.readJSON('persona.json', null), headline: normalize(raw).headline, count: Number(args.count) || 12 });
+    return console.log(`${c.g('✓')} sketch round ${r.round}: ${r.specs.length} sketches from your persona and taste`);
+  }
+  if (sub === 'show') {
+    const spec = await getSpec(store, args._[2]);
+    if (!spec) throw new FolioError(`No sketch ${args._[2]}`);
+    return console.log(renderSketch(spec, normalize(await loadConfig(config))));
+  }
+  throw new FolioError('Usage: folio sketch add <file.json> | folio sketch auto [--count 12] | folio sketch show <id>');
+}
+
 async function cmdJobs(args, config) {
   const base = dirname(config);
   const store = openStore(base);
@@ -344,6 +419,14 @@ async function main() {
       return cmdPick(args, config);
     case 'jobs':
       return cmdJobs(args, config);
+    case 'persona':
+      return cmdPersona(args, config);
+    case 'refs':
+    case 'references':
+      return cmdRefs(args, config);
+    case 'sketch':
+    case 'sketches':
+      return cmdSketch(args, config);
     case 'shot':
     case 'screenshot':
       return cmdShot(args, config);
