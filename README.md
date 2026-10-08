@@ -94,6 +94,16 @@ npx folio-site deploy                # publish to GitHub Pages
 
 Without an agent you can't generate designs (that's the agent's job), but you get four solid built-in themes, the live preview, and everything else.
 
+## No coding agent? Use your API key
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+folio generate --run          # start a round and build it right away
+folio run                     # or: do whatever is waiting (rounds, persona, sketches, your resume)
+```
+
+With the key set, `folio studio` also shows **Build now with my API key** on every waiting job. The key is only sent to api.anthropic.com and is never saved. Generated designs pass the same checks as agent-made ones, and code that reaches for modules, the process or the network is refused before it's written. Pick a model with `--model` or `FOLIO_MODEL`.
+
 ## Use it from your AI app (MCP)
 
 folio is also an MCP server, so Claude, Cursor, Codex, VS Code and other MCP clients can drive it directly: open Studio, read and write the persona, add references, make sketches, start rounds, claim designs, check them.
@@ -142,6 +152,7 @@ For a quick start without generating, four hand-tuned themes ship with folio: **
 | `folio studio` | Open Folio Studio: Library, Persona, Explore (sketches), Compare + mix, Publish |
 | `folio persona [write <file>]` · `folio refs [add <file>]` · `folio sketch auto\|add\|show` | Persona card, reference board, first-screen sketches (agents write; you correct in Studio) |
 | `folio jobs [next \| cancel <id>]` | Generation progress; agents claim the next design or task |
+| `folio run` | Build waiting designs (and persona, sketches, resume reading) with your own `ANTHROPIC_API_KEY`, no agent needed |
 | `folio mcp` | Run as an MCP server for AI apps |
 | `folio dev` | The same local server without opening a browser (Studio at `/studio`, your site at `/`) |
 | `folio build [--out dist]` | Render the static site |

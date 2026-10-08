@@ -120,8 +120,10 @@ aside.panel{flex:1 1 340px;min-width:0;max-width:440px;background:var(--card);bo
 .field{display:flex;flex-direction:column;gap:4px;font-size:13.5px;color:var(--mute);min-width:0}
 .field input,.field textarea{font:inherit;font-size:15px;color:var(--ink);background:var(--card);border:1px solid var(--line2);border-radius:10px;padding:8px 10px;min-height:40px;width:100%}
 .field textarea{resize:vertical;min-height:80px}
+.field input[type=checkbox]{width:20px;height:20px;min-height:0;padding:0;flex:none;accent-color:var(--ink)}
 .fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}
 .item{border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+.item.compact{flex-direction:row;align-items:flex-end;flex-wrap:wrap}.item.compact>.fgrid{flex:1 1 320px}
 .errs{border-radius:12px;padding:12px 14px;font-size:14px}
 .errs.bad{background:#fde8e4;color:#8a1c0c}.errs.note{background:#fff6e0;color:#6b4a00}
 .savebar{position:sticky;bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px;border-radius:14px;background:var(--ink);color:var(--bg)}
@@ -195,9 +197,12 @@ const cmpKey = 'folio-compare';
 function cmpGet() { try { return JSON.parse(sessionStorage.getItem(cmpKey) || '[]'); } catch { return []; } }
 function cmpToggle(id) { const c = cmpGet(); const n = c.includes(id) ? c.filter((x) => x !== id) : [...c, id].slice(-4); try { sessionStorage.setItem(cmpKey, JSON.stringify(n)); } catch {} refresh(); }
 function agentBox() {
+  const r = state.runner || {};
   return h('div', { class: 'agentbox' }, 'Tell your agent:', h('code', null, AGENT_ASK),
     h('button', { class: 'btn', type: 'button', onclick: () => copy(AGENT_ASK, 'Copied. Paste it to Claude Code, Cursor or Codex (it runs: folio jobs next)') }, 'Copy'),
-    h('span', { class: 'mono' }, 'it claims designs one by one · several agents can share a job'));
+    r.available ? h('button', { class: 'btn pri', type: 'button', disabled: r.running, onclick: async () => { try { state.runner = await api('/api/runner/start', {}); toast('Building with your API key'); refresh(); } catch (e) { toast(e.message); } } }, r.running ? 'Building…' : 'Build now with my API key')
+      : h('span', { class: 'mono' }, 'no agent? run: folio run (uses your ANTHROPIC_API_KEY)'),
+    r.running && r.log.length ? h('span', { class: 'mono', role: 'status' }, r.log[r.log.length - 1]) : null);
 }
 async function startJob(body) {
   try {
@@ -586,7 +591,7 @@ async function renderContent() {
     Object.entries(SECTIONS).map(([key, sec]) => {
       const rows = Array.isArray(draft[key]) ? draft[key] : (draft[key] = []);
       return h('section', { class: 'box', 'aria-label': sec.title }, h('div', { class: 'row between' }, h('h2', null, sec.title), h('button', { class: 'btn', type: 'button', onclick: () => { rows.push(JSON.parse(JSON.stringify(sec.blank))); mark(); renderContent(); } }, '+ Add')),
-        rows.length ? rows.map((row, i) => h('div', { class: 'item' },
+        rows.length ? rows.map((row, i) => h('div', { class: sec.fields.length <= 2 ? 'item compact' : 'item' },
           h('div', { class: 'fgrid' }, sec.fields.map(([k, label, type]) => inputFor(row, k, label, type || 'text', (v) => { if (v === '' || v === false || (Array.isArray(v) && !v.length)) delete row[k]; else row[k] = v; mark(); }))),
           h('div', { class: 'row between' }, row.stars != null ? h('span', { class: 'mono' }, '★ ' + row.stars + ' (from GitHub)') : h('span'),
             h('div', { class: 'row' },
@@ -603,10 +608,11 @@ async function renderContent() {
 
 async function refresh() {
   try {
-    state.jobs = await api('/api/jobs');
+    [state.jobs, state.runner] = await Promise.all([api('/api/jobs'), api('/api/runner').catch(() => null)]);
     state.itemState = {};
     for (const j of state.jobs) if (j.status === 'active') for (const i of j.items) state.itemState[i.theme] = i.state;
-    if (view === 'content') { if (!state.dirty) { state.contentData = null; state.draft = null; } await renderContent(); }
+    // Never redraw the form under someone's cursor: with unsaved edits, background updates wait.
+    if (view === 'content') { if (!state.dirty) { state.contentData = null; state.draft = null; await renderContent(); } else if (!$('main').childElementCount) await renderContent(); }
     else if (view === 'persona') await renderPersona();
     else if (view === 'explore') await renderExplore();
     else if (view === 'compare') await renderCompare();
@@ -616,7 +622,7 @@ async function refresh() {
   } catch (e) { fill($('main'), h('div', { class: 'empty' }, 'Could not load: ' + e.message)); }
   // Claims don't touch watched files, so poll gently while a round is running.
   clearTimeout(refresh.t);
-  if (state.jobs.some((j) => j.status === 'active')) refresh.t = setTimeout(refresh, 5000);
+  if (state.jobs.some((j) => j.status === 'active') || state.runner?.running) refresh.t = setTimeout(refresh, state.runner?.running ? 2500 : 5000);
 }
 refresh();
 // Designs landing from agents refresh the view in place (no full reload, so filters and selection stay).

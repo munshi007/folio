@@ -70,6 +70,14 @@ async function themeFromSource(id, source) {
   return { meta: { name: id, ...mod.meta }, render: mod.render };
 }
 
+// One runner per project at a time, inside this server process. The key stays in the server's environment;
+// the page only learns whether one is set.
+const runners = new Map();
+function runnerState(base) {
+  const r = runners.get(base);
+  return { available: Boolean(process.env.ANTHROPIC_API_KEY), running: Boolean(r?.running), log: r?.log.slice(-12) ?? [], result: r?.result ?? null };
+}
+
 export async function handleApi(req, res, url, ctx) {
   const { store, configPath, base, port } = ctx;
   const path = url.pathname;
@@ -268,6 +276,21 @@ export async function handleApi(req, res, url, ctx) {
       if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
       if (!validJobId(jm[1])) return send(res, 400, { error: 'bad job id' }), true;
       return send(res, 200, await cancelJob(store, base, jm[1])), true;
+    }
+
+    // ---- runner (API key) ----
+    if (path === '/api/runner' && req.method === 'GET') return send(res, 200, runnerState(base)), true;
+    if (path === '/api/runner/start') {
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      if (!process.env.ANTHROPIC_API_KEY) return send(res, 400, { error: 'start folio with ANTHROPIC_API_KEY set to build without an agent' }), true;
+      if (runners.get(base)?.running) return send(res, 200, runnerState(base)), true;
+      const { runJobs, DEFAULT_MODEL } = await import('./runner.js');
+      const r = { running: true, log: [], result: null };
+      runners.set(base, r);
+      runJobs({ store, base, configPath, apiKey: process.env.ANTHROPIC_API_KEY, model: process.env.FOLIO_MODEL || DEFAULT_MODEL, log: (m) => r.log.push(m) })
+        .then((out) => { r.result = out; }, (e) => { r.result = { designed: 0, failed: 1, errors: [e.message] }; })
+        .finally(() => { r.running = false; });
+      return send(res, 200, runnerState(base)), true;
     }
 
     // ---- content ----

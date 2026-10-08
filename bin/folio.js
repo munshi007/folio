@@ -48,6 +48,7 @@ ${c.b('Generate designs')}
   folio generate --like <theme> [--keep vibe]     siblings of a design you liked: keep vibe|colors|type|layout|signature,
                                                   change two big things each [--count 3]
   folio jobs [next [--json] | cancel <id>]        generation progress; agents claim the next design to make
+  folio run [--model m] [--parallel n] [--max n]  do waiting jobs with your ANTHROPIC_API_KEY (no agent needed)
   folio pick <theme> [--as <name>]                keep a design (optionally rename it), set it in folio.json
   ${c.dim('watch them land live: folio dev → http://localhost:4321/__folio/gallery')}
 
@@ -243,7 +244,9 @@ async function cmdGenerate(args, config) {
   console.log(`${c.g('✓')} job ${c.b(job.id)} · round ${c.b(`#${job.run}`)}: ${job.files.length} ${like ? `variations of ${c.m(like)}, keeping its ${keep}` : 'briefs'} ${c.dim(`(seed ${job.seed}; same seed = same briefs)`)}\n`);
   for (const f of job.files) console.log(`  ${c.m(f.name.padEnd(24))} ${f.direction}  ${c.dim(relative(process.cwd(), f.brief))}`);
   console.log(`\n  Each theme file renders already (${like ? `as a copy of ${like}` : 'as the plain starter'}) and is marked PENDING until designed.`);
+  if (args.run) return cmdRun(args, config);
   console.log(`  ${c.b('Agent:')} claim and design them with ${c.b('folio jobs next')} (in parallel if you can), following skills/folio/GENERATE.md.`);
+  console.log(`  ${c.b('No agent?')} ${c.b('folio run')} builds them with your ANTHROPIC_API_KEY.`);
   console.log(`  ${c.b('You:')} ${c.b('folio studio')}. Progress and designs appear live.`);
 }
 
@@ -310,6 +313,19 @@ async function cmdSketch(args, config) {
     return console.log(renderSketch(spec, normalize(await loadConfig(config))));
   }
   throw new FolioError('Usage: folio sketch add <file.json> | folio sketch auto [--count 12] | folio sketch show <id>');
+}
+
+async function cmdRun(args, config) {
+  const { runJobs, DEFAULT_MODEL } = await import('../src/runner.js');
+  const base = dirname(config);
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) throw new FolioError('Set ANTHROPIC_API_KEY first (export ANTHROPIC_API_KEY=sk-ant-…). It is only sent to api.anthropic.com and never saved.');
+  const model = typeof args.model === 'string' ? args.model : process.env.FOLIO_MODEL || DEFAULT_MODEL;
+  console.log(`  ${c.b('folio run')} · ${model} · doing waiting jobs (Ctrl+C stops; claimed work is picked up again later)`);
+  const r = await runJobs({ store: openStore(base), base, configPath: config, apiKey, model, max: Number(args.max) || Infinity, parallel: Number(args.parallel) || 2, log: (m) => console.log(`  ${m}`) });
+  if (!r.designed && !r.failed) return console.log(c.dim('  nothing waiting · start a round with folio generate or from Studio'));
+  console.log(`\n  ${c.g(`${r.designed} done`)}${r.failed ? c.r(` · ${r.failed} failed`) : ''} · see them in ${c.b('folio studio')}`);
+  if (r.failed) process.exitCode = 1;
 }
 
 async function cmdJobs(args, config) {
@@ -422,6 +438,8 @@ async function main() {
       return cmdPick(args, config);
     case 'jobs':
       return cmdJobs(args, config);
+    case 'run':
+      return cmdRun(args, config);
     case 'persona':
       return cmdPersona(args, config);
     case 'mcp':

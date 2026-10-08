@@ -53,3 +53,7 @@ When all briefs are done (or after ~10 minutes, whichever comes first), tell the
 - Unpicked `g<run>-*` theme files can stay (they're local drafts) or be deleted when the user is happy. Ask before deleting.
 
 Generated drafts, briefs and screenshots live in `.folio/`, which ignores itself in git.
+
+## Without an agent
+
+`folio run` does the same queue with the person's `ANTHROPIC_API_KEY`: it claims items like an agent, has the model write each design, screens and checks it, and sends errors back for up to two fixes. Agents and the runner can share a queue safely.

@@ -307,7 +307,6 @@ test('adopting from the gallery sets the theme and drops look overrides, keeps c
 
 // ---- more like this -------------------------------------------------------------------------
 import { makeVariations } from '../src/generate.js';
-import { themeSource } from '../src/themes.js';
 
 test('every built-in theme copies into a standalone theme that passes checks', async () => {
   for (const name of Object.keys(themes)) {
@@ -752,4 +751,54 @@ test('content: Studio edits validate, keep the design, version, restore; uploads
   } finally {
     srv.close();
   }
+});
+
+// ---- API-key runner (fake model, no network) ----------------------------------------------------
+import { runJobs, screenThemeSource, extractBlock } from '../src/runner.js';
+import { themeSource } from '../src/themes.js';
+
+test('runner screens generated theme code', () => {
+  const ok = "export const meta = { name: 'x', description: 'd' };\nexport function render(p, h) { return { css: '', body: h.esc(p.name) }; }";
+  assert.deepEqual(screenThemeSource(ok), []);
+  for (const bad of ["import fs from 'fs';", 'process.exit()', "globalThis.x", "h.esc.constructor.constructor('x')()", "fetch('https://x')", '<script src="https://x.js">', "require('fs')"]) {
+    assert.ok(screenThemeSource(ok + '\n' + bad).length, bad);
+  }
+  assert.equal(extractBlock('hi\n```js\nshort\n```\n```js\nthe longer one\n```', 'js'), 'the longer one');
+});
+
+test('runner builds designs and a persona with a model, feeding errors back', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-run-'));
+  const cfg = join(dir, 'folio.json');
+  writeFileSync(cfg, JSON.stringify(example));
+  const store = openStore(dir);
+  const job = await createJob(store, dir, normalize(example), { count: 1, cli: 'folio' });
+  const name = job.items[0].theme;
+  const good = (await themeSource('editorial', name, dir)).replace(/description: '[^']*'/, "description: 'Editorial test design'");
+  const calls = [];
+  const replies = [
+    '```js\n' + good.replace('export function render', 'const leak = process.env;\nexport function render') + '\n```',
+    '```js\n' + good + '\n```\nDone.',
+  ];
+  const fetchImpl = async (url, init) => {
+    const body = JSON.parse(init.body);
+    calls.push({ url, key: init.headers['x-api-key'], body });
+    const text = body.system.startsWith('You work inside folio')
+      ? '```json\n' + JSON.stringify({ headline: 'Makes slow things fast', traits: [{ key: 'voice', value: 'plain', quote: 'confusing things obvious', source: 'resume' }], dials: { energy: 6 } }) + '\n```'
+      : replies.shift();
+    return new Response(JSON.stringify({ content: [{ type: 'text', text }], stop_reason: 'end_turn' }), { status: 200 });
+  };
+  const { createPersonaJob } = await import('../src/jobs.js');
+  await createPersonaJob(store, dir, { cli: 'folio' });
+  const logs = [];
+  const r = await runJobs({ store, base: dir, configPath: cfg, apiKey: 'sk-test', parallel: 1, fetchImpl, log: (m) => logs.push(m) });
+  assert.equal(r.failed, 0, logs.join('\n'));
+  assert.equal(r.designed, 2);
+  assert.ok(calls.every((c) => c.url === 'https://api.anthropic.com/v1/messages' && c.key === 'sk-test'));
+  const designCalls = calls.filter((c) => !c.body.system.startsWith('You work inside folio'));
+  assert.equal(designCalls.length, 2, 'one retry after the screened reply');
+  assert.match(designCalls[1].body.messages.at(-1).content, /process/);
+  assert.match(readFileSync(join(dir, 'themes', `${name}.js`), 'utf8'), /Editorial test design/);
+  assert.equal((await listJobs(store, dir)).find((j) => j.id === job.id).progress.designed, 1);
+  assert.equal((await readPersona(store)).headline, 'Makes slow things fast');
+  await assert.rejects(runJobs({ store, base: dir, configPath: cfg, apiKey: '' }), /ANTHROPIC_API_KEY/);
 });
