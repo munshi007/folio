@@ -45,6 +45,13 @@ class FsNamespace {
     await writeFile(tmp, text);
     await rename(tmp, file);
   }
+  async writeBytes(key, buffer) {
+    const file = this.path(key);
+    await mkdir(dirname(file), { recursive: true });
+    const tmp = `${file}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
+    await writeFile(tmp, buffer);
+    await rename(tmp, file);
+  }
   async readJSON(key, fallback = null) {
     const text = await this.readText(key);
     if (text == null) return fallback;

@@ -716,3 +716,40 @@ test('mcp server speaks JSON-RPC over stdio and reports tool errors as results',
   assert.equal(byId[6].error.code, -32601);
   assert.equal(lines.length, 6, 'no reply to the notification, nothing else on stdout');
 });
+
+test('content: Studio edits validate, keep the design, version, restore; uploads become a content job', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-content-'));
+  const cfg = join(dir, 'folio.json');
+  writeFileSync(cfg, JSON.stringify({ ...example, theme: 'terminal' }));
+  const port = 7100 + Math.floor(Math.random() * 300);
+  const srv = await serve({ config: cfg, port });
+  const u = `http://127.0.0.1:${port}`;
+  const post = (path, body) => fetch(u + path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1' }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await post('/api/content', { content: { ...example, name: '' } })).status, 400, 'invalid content refused');
+    const r = await (await post('/api/content', { content: { ...example, headline: 'New headline', theme: 'bento' } })).json();
+    assert.equal(r.version, 2, 'v1 is the snapshot before the first edit');
+    const saved = JSON.parse(readFileSync(cfg, 'utf8'));
+    assert.equal(saved.headline, 'New headline');
+    assert.equal(saved.theme, 'terminal', 'content edits never change the design');
+    await post('/api/content/restore', { n: 1 });
+    assert.equal(JSON.parse(readFileSync(cfg, 'utf8')).headline, example.headline);
+    const got = await (await fetch(u + '/api/content')).json();
+    assert.equal(got.versions[0].note, 'restored v1');
+
+    const up = (headers) => fetch(u + '/api/content/upload?name=My%20CV.pdf', { method: 'POST', headers, body: Buffer.from('%PDF-1.4 fake') });
+    assert.equal((await up({ 'Content-Type': 'application/pdf' })).status, 403, 'needs X-Folio');
+    assert.equal((await up({ 'Content-Type': 'image/png', 'X-Folio': '1' })).status, 400, 'only resume-like files');
+    const f = await (await up({ 'Content-Type': 'application/pdf', 'X-Folio': '1' })).json();
+    assert.equal(f.path, '.folio/inputs/my-cv.pdf');
+    assert.equal(readFileSync(join(dir, f.path), 'utf8'), '%PDF-1.4 fake');
+    assert.equal((await post('/api/content/read', { files: ['../../etc/passwd'] })).status, 400);
+    const j = await (await post('/api/content/read', { files: [f.path] })).json();
+    assert.equal(j.kind, 'content');
+    const next = await claimNext(openStore(dir), dir, 't');
+    assert.match(next.brief, /my-cv\.pdf/);
+    assert.match(next.brief, /Never invent facts/);
+  } finally {
+    srv.close();
+  }
+});

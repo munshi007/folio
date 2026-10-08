@@ -117,6 +117,14 @@ aside.panel{flex:1 1 340px;min-width:0;max-width:440px;background:var(--card);bo
 .checks{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .checks li{display:grid;grid-template-columns:22px minmax(0,1fr);gap:8px;font-size:14.5px}
 .checks .ok{color:var(--ok)}.checks .warn{color:var(--warn)}.checks .error{color:#d4462f}
+.field{display:flex;flex-direction:column;gap:4px;font-size:13.5px;color:var(--mute);min-width:0}
+.field input,.field textarea{font:inherit;font-size:15px;color:var(--ink);background:var(--card);border:1px solid var(--line2);border-radius:10px;padding:8px 10px;min-height:40px;width:100%}
+.field textarea{resize:vertical;min-height:80px}
+.fgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,220px),1fr));gap:12px}
+.item{border:1px solid var(--line);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:10px;background:var(--bg)}
+.errs{border-radius:12px;padding:12px 14px;font-size:14px}
+.errs.bad{background:#fde8e4;color:#8a1c0c}.errs.note{background:#fff6e0;color:#6b4a00}
+.savebar{position:sticky;bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px;border-radius:14px;background:var(--ink);color:var(--bg)}
 .toast{position:fixed;left:0;right:0;margin:0 auto;width:max-content;max-width:calc(100vw - 32px);bottom:24px;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:500;opacity:0;transform:translateY(16px);transition:all .25s;pointer-events:none}
 .toast.on{opacity:1;transform:none}
 @media (max-width:760px){main{padding:24px 16px 60px}nav.side{max-width:none;border-right:0;border-bottom:1px solid var(--line)}}
@@ -525,12 +533,81 @@ async function renderPublish() {
 }
 function thumbBox(id) { const t = thumb(id); t.style.width = '220px'; t.style.borderRadius = '10px'; t.style.border = '1px solid var(--line)'; return t; }
 
+// ---- Content: folio.json as a form --------------------------------------------------------------
+const SECTIONS = {
+  links: { title: 'Links', blank: { label: '', url: '' }, fields: [['label', 'Label'], ['url', 'URL']] },
+  projects: { title: 'Projects', blank: { name: '', description: '' }, fields: [['name', 'Name'], ['description', 'One-line pitch', 'textarea'], ['url', 'Live link'], ['repo', 'Source link'], ['tags', 'Tags (comma separated)', 'csv'], ['year', 'Year'], ['highlights', 'Highlights (one per line)', 'lines'], ['featured', 'Featured', 'check']] },
+  experience: { title: 'Experience', blank: { role: '', org: '' }, fields: [['role', 'Role'], ['org', 'Organization'], ['start', 'Start (YYYY-MM)'], ['end', 'End (YYYY-MM or present)'], ['location', 'Location'], ['summary', 'One-line summary'], ['highlights', 'Highlights (one per line, outcome first)', 'lines']] },
+  education: { title: 'Education', blank: { school: '' }, fields: [['school', 'School'], ['degree', 'Degree'], ['start', 'Start'], ['end', 'End'], ['details', 'Details']] },
+  skills: { title: 'Skills', blank: { group: '', items: [] }, fields: [['group', 'Group'], ['items', 'Skills (comma separated)', 'csv']] },
+};
+function inputFor(obj, k, label, type, onchange) {
+  const v = obj[k];
+  if (type === 'check') { const c = h('input', { type: 'checkbox', checked: !!v }); c.addEventListener('change', () => onchange(c.checked)); return h('label', { class: 'field', style: 'flex-direction:row;align-items:center;gap:8px' }, c, label); }
+  const val = type === 'csv' ? (v || []).join(', ') : type === 'lines' ? (v || []).join('\n') : v ?? '';
+  const el = h(type === 'textarea' || type === 'lines' ? 'textarea' : 'input', { 'aria-label': label });
+  el.value = val;
+  el.addEventListener('input', () => onchange(type === 'csv' ? el.value.split(',').map((x) => x.trim()).filter(Boolean) : type === 'lines' ? el.value.split('\n').map((x) => x.trim()).filter(Boolean) : el.value));
+  return h('label', { class: 'field' }, label, el);
+}
+
+window.addEventListener('beforeunload', (e) => { if (state.dirty) e.preventDefault(); });
+async function renderContent() {
+  const data = state.contentData || (state.contentData = await api('/api/content'));
+  const draft = state.draft || (state.draft = JSON.parse(JSON.stringify(data.content)));
+  const main = $('main');
+  const mark = () => { state.dirty = true; $('.savebar b') && ($('.savebar b').textContent = 'Unsaved changes'); };
+  const set = (k) => (v) => { if (v === '' || (Array.isArray(v) && !v.length)) delete draft[k]; else draft[k] = v; mark(); };
+  const basics = [['name', 'Name'], ['headline', 'Headline (10 words or fewer)'], ['location', 'Location'], ['status', 'Status (e.g. Open to internships)'], ['email', 'Email (public on your site)'], ['url', 'Your site URL (for link previews)']];
+  const ghIn = h('input', { 'aria-label': 'GitHub username', placeholder: 'GitHub username', style: 'min-height:40px;border:1px solid var(--line2);border-radius:10px;padding:0 10px;font:inherit;background:var(--card);color:var(--ink)' });
+  const fileIn = h('input', { type: 'file', accept: '.pdf,.docx,.txt,.md,.zip', 'aria-label': 'Resume or LinkedIn export' });
+  const status = h('span', { class: 'mono', role: 'status' });
+  fill(main,
+    h('header', null, h('h1', null, 'Your content'), h('p', { class: 'sub' }, 'Everything your site says about you. Designs never change this; this never changes the design.')),
+    jobsOf(['content']),
+    h('div', { class: 'cols' },
+      h('section', { class: 'box', 'aria-label': 'Import from GitHub' }, h('b', null, 'Import from GitHub'), h('p', { class: 'sub', style: 'margin:0' }, 'Adds your name, photo, bio and best repos. Never overwrites what you wrote.'),
+        h('form', { class: 'row', onsubmit: async (e) => { e.preventDefault(); status.textContent = 'Importing…'; try { const r = await api('/api/content/github', { user: ghIn.value.trim() }); state.contentData = null; state.draft = null; toast('Imported ' + (r.added.length ? r.added.length + ' projects' : 'your profile')); refresh(); } catch (err) { status.textContent = err.message; } } }, ghIn, h('button', { class: 'btn', type: 'submit' }, 'Import'))),
+      h('section', { class: 'box', 'aria-label': 'Resume' }, h('b', null, 'Your resume or LinkedIn export'), h('p', { class: 'sub', style: 'margin:0' }, 'Kept on this computer. Your agent reads it and fills the form; it never invents facts.'),
+        h('div', { class: 'row' }, fileIn, h('button', { class: 'btn pri', type: 'button', onclick: async () => {
+          const f = fileIn.files[0]; if (!f) return toast('Choose a file first');
+          status.textContent = 'Uploading…';
+          try {
+            const r = await fetch('/api/content/upload?name=' + encodeURIComponent(f.name), { method: 'POST', headers: { 'X-Folio': '1', 'Content-Type': f.type || 'application/octet-stream' }, body: f });
+            const up = await r.json(); if (!r.ok) throw new Error(up.error);
+            await api('/api/content/read', { files: [up.path] });
+            status.textContent = ''; toast('Uploaded. Ready for your agent to read'); refresh();
+          } catch (err) { status.textContent = err.message; } } }, 'Upload and send to my agent')), status)),
+    data.errors.length ? h('div', { class: 'errs bad' }, h('b', null, 'Problems: '), data.errors.join(' · ')) : null,
+    data.warnings.length ? h('div', { class: 'errs note' }, h('b', null, 'Suggestions: '), data.warnings.join(' · ')) : null,
+    h('section', { class: 'box', 'aria-label': 'Basics' }, h('h2', null, 'Basics'),
+      h('div', { class: 'fgrid' }, basics.map(([k, label]) => inputFor(draft, k, label, 'text', set(k)))),
+      inputFor(draft, 'about', 'About (2–3 sentences; **bold** and [links](https://…) work)', 'textarea', set('about'))),
+    Object.entries(SECTIONS).map(([key, sec]) => {
+      const rows = Array.isArray(draft[key]) ? draft[key] : (draft[key] = []);
+      return h('section', { class: 'box', 'aria-label': sec.title }, h('div', { class: 'row between' }, h('h2', null, sec.title), h('button', { class: 'btn', type: 'button', onclick: () => { rows.push(JSON.parse(JSON.stringify(sec.blank))); mark(); renderContent(); } }, '+ Add')),
+        rows.length ? rows.map((row, i) => h('div', { class: 'item' },
+          h('div', { class: 'fgrid' }, sec.fields.map(([k, label, type]) => inputFor(row, k, label, type || 'text', (v) => { if (v === '' || v === false || (Array.isArray(v) && !v.length)) delete row[k]; else row[k] = v; mark(); }))),
+          h('div', { class: 'row between' }, row.stars != null ? h('span', { class: 'mono' }, '★ ' + row.stars + ' (from GitHub)') : h('span'),
+            h('div', { class: 'row' },
+              i > 0 ? h('button', { class: 'btn', type: 'button', 'aria-label': 'Move up', onclick: () => { [rows[i - 1], rows[i]] = [rows[i], rows[i - 1]]; mark(); renderContent(); } }, '↑') : null,
+              h('button', { class: 'btn', type: 'button', onclick: () => { rows.splice(i, 1); mark(); renderContent(); } }, 'Remove'))))) : h('p', { class: 'sub', style: 'margin:0' }, 'Nothing here yet.'));
+    }),
+    h('section', { class: 'box', 'aria-label': 'Versions' }, h('b', null, 'Versions'), data.versions.length ? h('ol', { class: 'hist' }, data.versions.slice(0, 8).map((v, i) => h('li', null, h('b', { class: 'mono' }, 'v' + v.n), h('span', null, v.note, h('small', null, ago(v.at))),
+      i === 0 ? h('span', { class: 'mono' }, 'current') : h('button', { class: 'btn', type: 'button', onclick: async () => { try { await api('/api/content/restore', { n: v.n }); state.contentData = null; state.draft = null; toast('Restored v' + v.n); refresh(); } catch (e) { toast(e.message); } } }, 'Restore')))) : h('p', { class: 'sub', style: 'margin:0' }, 'Your first save starts the history.')),
+    h('div', { class: 'savebar' }, h('b', null, state.dirty ? 'Unsaved changes' : 'All saved'),
+      h('div', { class: 'row' },
+        h('button', { class: 'btn', type: 'button', onclick: () => { state.draft = null; state.dirty = false; renderContent(); } }, 'Discard'),
+        h('button', { class: 'btn lime', type: 'button', onclick: async () => { try { const r = await api('/api/content', { content: draft }); state.contentData = null; state.draft = null; state.dirty = false; toast('Saved as v' + r.version); renderContent(); } catch (e) { toast(e.message); } } }, 'Save'))));
+}
+
 async function refresh() {
   try {
     state.jobs = await api('/api/jobs');
     state.itemState = {};
     for (const j of state.jobs) if (j.status === 'active') for (const i of j.items) state.itemState[i.theme] = i.state;
-    if (view === 'persona') await renderPersona();
+    if (view === 'content') { if (!state.dirty) { state.contentData = null; state.draft = null; } await renderContent(); }
+    else if (view === 'persona') await renderPersona();
     else if (view === 'explore') await renderExplore();
     else if (view === 'compare') await renderCompare();
     else if (view === 'publish') await renderPublish();
@@ -560,6 +637,7 @@ export function studioPage({ boot }) {
     <div class="logo">✦ folio <span>studio</span></div>
     <div class="nav">
       <a href="/studio" data-view="library">Library</a>
+      <a href="/studio?view=content" data-view="content">Content</a>
       <a href="/studio?view=persona" data-view="persona">Persona</a>
       <a href="/studio?view=explore" data-view="explore">Explore</a>
       <a href="/" target="_blank" rel="noopener">My site ↗</a>

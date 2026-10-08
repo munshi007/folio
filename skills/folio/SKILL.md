@@ -40,6 +40,8 @@ If they have nothing but a GitHub username, that's enough to start.
 - **skills**: group as Languages / Frameworks / Tools (or similar). 5–8 items per group, strongest first. Drop filler (MS Office, "Teamwork").
 - Students: education goes in, with notable coursework/honours in `details`. Hackathon wins → `awards`.
 
+If the person uploaded a resume in Studio → Content, `folio jobs next` hands you a **content** job naming the file in `.folio/inputs/`; fill folio.json from it with the rules above.
+
 ### 4. Read the person (persona), then gather references
 Follow [PERSONA.md](PERSONA.md). In short:
 1. If they haven't answered the three taste questions, ask them (or point them to Studio → Persona). A CV alone makes every persona too serious.

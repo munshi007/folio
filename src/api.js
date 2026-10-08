@@ -27,6 +27,8 @@ import { listRounds, readPicks, autoRound, pick, getSpec, tasteFrom, tasteSummar
 import { renderSketch } from './sketch.js';
 import { designTraits } from './traits.js';
 import { publishCheck, publish } from './publish.js';
+import { readContent, writeContent, restoreContent, importGitHub, saveUpload, contentVersions, MAX_UPLOAD } from './content.js';
+import { createContentJob } from './jobs.js';
 import { KEEPS } from './generate.js';
 import { fileURLToPath } from 'node:url';
 
@@ -266,6 +268,37 @@ export async function handleApi(req, res, url, ctx) {
       if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
       if (!validJobId(jm[1])) return send(res, 400, { error: 'bad job id' }), true;
       return send(res, 200, await cancelJob(store, base, jm[1])), true;
+    }
+
+    // ---- content ----
+    if (path === '/api/content') {
+      if (req.method === 'GET') return send(res, 200, { ...(await readContent(configPath)), versions: await contentVersions(store) }), true;
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      const body = await readJSONBody(req, 200_000);
+      return send(res, 200, await writeContent(store, configPath, body.content)), true;
+    }
+    if (path === '/api/content/restore' || path === '/api/content/github' || path === '/api/content/read') {
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      const body = await readJSONBody(req);
+      if (path.endsWith('restore')) return send(res, 200, await restoreContent(store, configPath, body.n)), true;
+      if (path.endsWith('github')) return send(res, 200, await importGitHub(store, configPath, body.user)), true;
+      const files = (Array.isArray(body.files) ? body.files : []).filter((f) => /^\.folio\/inputs\/[a-z0-9-]{1,40}\.(pdf|docx|txt|md|zip)$/.test(f));
+      if (!files.length) return send(res, 400, { error: 'upload a file first' }), true;
+      return send(res, 200, await createContentJob(store, base, { files, cli: CLI })), true;
+    }
+    if (path === '/api/content/upload') {
+      // Raw file body (not JSON), so the same-origin + X-Folio rules are checked here by hand.
+      const origin = req.headers.origin;
+      const ours = !origin || origin === `http://localhost:${port}` || origin === `http://127.0.0.1:${port}`;
+      if (req.method !== 'POST' || req.headers['x-folio'] !== '1' || !ours) return send(res, 403, { error: 'forbidden' }), true;
+      const chunks = [];
+      let size = 0;
+      for await (const c of req) {
+        size += c.length;
+        if (size > MAX_UPLOAD) return send(res, 413, { error: 'file is over 10 MB' }), true;
+        chunks.push(c);
+      }
+      return send(res, 200, await saveUpload(store, { name: url.searchParams.get('name'), type: req.headers['content-type'], body: Buffer.concat(chunks) })), true;
     }
 
     // ---- publish ----

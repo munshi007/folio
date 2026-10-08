@@ -18,6 +18,9 @@ import { loadTheme } from './themes.js';
 import { checkTheme } from './themecheck.js';
 import { setFlag, syncLibrary } from './library.js';
 import { personaBrief } from './persona.js';
+import { contentBrief } from './content.js';
+import { stat } from 'node:fs/promises';
+import { join } from 'node:path';
 
 export const CLAIM_TTL_MS = 20 * 60 * 1000; // a claim older than this is assumed abandoned
 
@@ -36,6 +39,14 @@ async function writeJob(store, job) {
 
 async function itemState(store, base, item) {
   // A persona item is done once a newer persona version than the one it started from exists.
+  // A content item is done once folio.json changed after the job started.
+  if (item.kind === 'content') {
+    try {
+      if ((await stat(join(base, 'folio.json'))).mtimeMs > new Date(item.since).getTime()) return { state: 'designed' };
+    } catch {}
+    if (item.claimedAt && Date.now() - new Date(item.claimedAt).getTime() < CLAIM_TTL_MS) return { state: 'working' };
+    return { state: 'waiting' };
+  }
   // A sketches item is done once an agent-made sketch round newer than the job exists.
   if (item.kind === 'sketches') {
     for (const f of await store.data.list('sketches')) {
@@ -123,6 +134,17 @@ export async function createPersonaJob(store, base, { correction = null, cli }) 
   return withProgress(store, base, job);
 }
 
+// Ask an agent to read uploaded files (resume, LinkedIn export) into folio.json.
+export async function createContentJob(store, base, { files, cli }) {
+  const id = `j${randomBytes(5).toString('hex')}`;
+  const briefKey = `jobs/${id}-brief.md`;
+  await store.data.writeText(briefKey, contentBrief({ files, cli }));
+  const job = { id, kind: 'content', status: 'active', createdAt: now(), run: null, like: null, keep: null,
+    items: [{ kind: 'content', theme: null, brief: briefKey, since: now(), claimedAt: null, claimedBy: null }] };
+  await store.data.withLock('jobs', () => writeJob(store, job));
+  return withProgress(store, base, job);
+}
+
 // Ask an agent for a round of inventive sketch specs (from persona + references), as a single-item job.
 export async function createSketchJob(store, base, { count = 12, cli }) {
   const persona = await store.data.readJSON('persona.json', null);
@@ -175,7 +197,7 @@ async function claimNextUnlocked(store, base, worker) {
     rec.claimedBy = worker;
     await writeJob(store, raw);
     const brief = await store.data.readText(next.brief);
-    if (next.kind === 'persona' || next.kind === 'sketches') return { job: j.id, kind: next.kind, briefPath: `.folio/${next.brief}`, brief };
+    if (next.kind === 'persona' || next.kind === 'sketches' || next.kind === 'content') return { job: j.id, kind: next.kind, briefPath: `.folio/${next.brief}`, brief };
     return { job: j.id, kind: 'design', run: j.run, theme: next.theme, briefPath: `.folio/${next.brief}`, themePath: `themes/${next.theme}.js`, brief };
   }
   return null;
