@@ -4,18 +4,18 @@
 
 **Six designers. One you.**
 
-Your agent turns your resume and GitHub into **six completely different portfolio sites**, designed from scratch for your real content. Pick the one that feels like you, ask for more like it, publish free on GitHub Pages.
+folio reads who you are from your resume and GitHub, shows you a dozen quick sketches, and builds the ones you like into **real, genuinely different portfolio sites**. Pick one, refine it, publish free on GitHub Pages, and take the look everywhere: LinkedIn banner, link previews, résumé PDF.
 
 ```bash
-npx skills add munshi007/folio
+npx folio-site studio
 ```
-then tell your agent: *"make my portfolio from resume.pdf"*
+<sub>or with an agent: <code>npx skills add munshi007/folio</code>, then <i>"make my portfolio from resume.pdf"</i></sub>
 
 <br>
 
-<img src="docs/gallery.jpg" width="92%" alt="The folio gallery: six generated designs of the same profile, side by side">
+<img src="docs/studio/library.jpg" width="92%" alt="Folio Studio: the Library with six generated designs of the same profile">
 
-<sub>The gallery: same content, six designs, each a real running site with a phone preview.</sub>
+<sub>Folio Studio, local in your browser. Every design from every round, nothing ever deleted. (Fictional demo profile.)</sub>
 
 </div>
 
@@ -23,9 +23,7 @@ then tell your agent: *"make my portfolio from resume.pdf"*
 
 ## Not a template
 
-Every portfolio generator gives you the same five themes everyone else has. Folio doesn't pick a theme for you: it **briefs a designer per direction** and your agent builds each one from scratch, around your actual work.
-
-These six came out of a single run on one profile (shown here with the fictional demo profile):
+Portfolio generators give everyone the same five themes. folio briefs **a different designer per direction**, built around your actual work. These six came out of one round on one profile:
 
 | | | |
 |:-:|:-:|:-:|
@@ -34,65 +32,56 @@ These six came out of a single run on one profile (shown here with the fictional
 | <img src="docs/designs/retro-os.jpg" alt="Retro desktop OS design"> | <img src="docs/designs/soft.jpg" alt="Soft bento design"> | <img src="docs/designs/blueprint.jpg" alt="Technical blueprint design"> |
 | **Retro OS:** projects are files, roles are processes, a live local clock | **Soft:** plum and clay tiles with a hover preview panel | **Blueprint:** an engineering drawing with a scrolling bill of materials |
 
-None of these existed before the run. Run it again and you get six different ones.
+None of these existed before the run. Run it again and you get six different ones. `folio bench` measures this: how different the designs in a round really are, compared with just prompting a model.
 
 ## How it works
 
-```text
-you   ›  make my portfolio from resume.pdf, my GitHub is octocat
-agent ›  reads your resume + repos → writes folio.json (no invented facts)
-      ›  folio generate          → 6 design briefs
-      ›  designs all 6 in parallel, each checked and screenshot-reviewed
-you   ›  open the gallery, click "Make this my site"
-      ›  "more like this one, keep the colors"   → 3 siblings, side by side
-      ›  folio deploy             → https://you.github.io
-```
+### 1. It reads you, and shows you how
+Upload your resume or import GitHub. folio's agent writes your content (it **never invents** numbers, employers or dates), then a **persona card**: your mood, voice and taste, each backed by your own words, plus dials you can drag. Three quick questions keep a formal CV from making everything dark and serious. Wrong? Say so in one line and it re-reads you.
 
-### 1. Your content, written properly
-The agent reads what you already have (resume PDF, GitHub, LinkedIn export, a few sentences) and writes `folio.json`: outcome-first bullets, one-line project pitches, your best repos picked by stars and recency. It **never invents** numbers, employers, dates or degrees. If a bullet needs a number you didn't give, it asks.
+<img src="docs/studio/persona.jpg" width="100%" alt="Persona card: traits quoted from the resume, dials, worlds">
 
-### 2. Six briefs, six designers
-`folio generate` writes six deliberately different briefs. Each one combines:
+### 2. Sketches first, sites second
+Instead of six full sites up front, **Explore** shows a dozen first screens in seconds: different layouts, palettes, type and motifs, sampled from your persona, with a wildcard every fourth. Like or skip; folio learns your taste and the next round leans your way. Only the ones you like get built.
 
-- a **direction**: Swiss, editorial, technical blueprint, data-native, brutalist, archive, academic paper, soft, retro OS, zine, cinematic, kinetic type
-- a **layout**, a **motion** level, a **palette** strategy and a **type** pairing (never the default AI fonts)
-- one **signature moment**: a terminal you can type into, a ⌘K palette, draggable cards, a scroll-driven timeline…
+<img src="docs/studio/explore.jpg" width="100%" alt="Explore: twelve first-screen sketches to like or skip">
 
-Directions are weighted to who you are, plus at least one wildcard. Your agent designs them in parallel. Before a design counts as done it must pass `folio theme check` (escaping, unsafe links, phones, dark mode, focus styles, reduced motion) and its designer looks at real screenshots of it.
+References come from **your worlds** (an astronomer gets star atlases, a transit nerd gets route maps), kept as principles plus a credit link, never copied images or text.
 
-### 3. Folio Studio
-`folio studio` opens **Studio** in your browser: your Library of every design from every round, each a live preview. Designs appear as they land. Nothing is ever deleted:
+### 3. Build, compare, mix
+Each liked sketch becomes a complete site, checked before it counts (escaping, unsafe links, phones, dark mode, focus, reduced motion) and reviewed from real screenshots. Put two to four side by side, or **mix** them: layout from one, colors from another, type from a third.
 
-- **Every change is a version.** Edits from Studio, your agent or your own editor are all captured; open any design to see its history, preview an old version and restore it (restoring adds a new version, so nothing is lost).
-- **Archive, don't delete.** Archived designs hide from view and come back with one click. Star favorites.
-- **Family tree.** Variations show which design they branched from.
+<img src="docs/studio/compare.jpg" width="100%" alt="Compare and mix: three designs side by side with their real fonts and colors">
 
-- **Make this my site:** sets it in `folio.json` and opens your site.
-- **More like this:** asks what you like about it (vibe, colors, typography, layout, signature moment), keeps exactly that, and gets three siblings that each change two big things. They show up next to the original, and you can repeat on the winner until it's yours.
-- **Open:** click around the full site.
+**More like this** keeps what you like (vibe, colors, type, layout or signature moment) and gets three siblings that change two big things each. Every edit is a version; restore any of them.
 
-### 4. Publish
-`folio deploy` pushes to the `gh-pages` branch and turns on GitHub Pages. Or point Vercel, Netlify or Cloudflare Pages at `folio build` → `dist/`.
+### 4. Publish, and take it everywhere
+A pre-flight checklist (it flags a phone number or street address before it goes public), then GitHub Pages in one click, or plain files for any host. The **identity kit** carries your design onto a link preview, LinkedIn and X banners, an announcement post and a one-page résumé PDF.
+
+<img src="docs/studio/publish.jpg" width="100%" alt="Publish: checklist, GitHub Pages, identity kit">
+
+<img src="docs/studio/kit-banner.jpg" width="66%" alt="LinkedIn banner in the Swiss design"> <img src="docs/studio/kit-post.jpg" width="27%" alt="Announcement post in the Swiss design">
 
 ## Quick start
 
-**With an agent** (Claude Code, Cursor, Codex, OpenCode…):
+Three ways to do the design work. Same Studio, same results:
 
+**1. Your coding agent** (Claude Code, Cursor, Codex, OpenCode…)
 ```bash
 npx skills add munshi007/folio
 ```
-
 > make my portfolio from ~/Downloads/resume.pdf, my GitHub is octocat
 
-**Without one:**
-
+**2. Your API key, no agent**
 ```bash
-npx folio-site init --github <you>   # profile + top repos → folio.json
-npx folio-site dev                   # live preview at localhost:4321
-npx folio-site deploy                # publish to GitHub Pages
+export ANTHROPIC_API_KEY=sk-ant-...
+npx folio-site init --github <you>
+npx folio-site studio          # every waiting job gets a "Build now" button
 ```
 
-Without an agent you can't generate designs (that's the agent's job), but you get four solid built-in themes, the live preview, and everything else.
+**3. Any MCP app** (Claude, Cursor, VS Code…): see [below](#use-it-from-your-ai-app-mcp).
+
+Just want a site in two minutes? `npx folio-site init --github <you> && npx folio-site deploy` with one of the four built-in themes.
 
 ## Your design, everywhere
 

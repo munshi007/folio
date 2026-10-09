@@ -270,7 +270,7 @@ function renderLibrary(lib) {
   main.append(
     h('header', { class: 'row between' },
       h('div', null, h('h1', null, first + "'s designs"),
-        h('p', { class: 'sub' }, lib.designs.length + ' designs · ' + built + ' ready · ' + lib.runs.length + ' rounds · nothing is ever deleted')),
+        h('p', { class: 'sub' }, lib.designs.length + (lib.designs.length === 1 ? ' design · ' : ' designs · ') + built + ' ready · ' + lib.runs.length + (lib.runs.length === 1 ? ' round' : ' rounds') + ' · nothing is ever deleted')),
       h('div', { class: 'row' },
         h('button', { class: 'btn pri', type: 'button', onclick: () => { state.newRun = true; refresh(); } }, 'New round of designs'))));
   if (state.newRun) main.append(newRunPanel());

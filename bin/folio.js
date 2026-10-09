@@ -149,12 +149,20 @@ async function cmdBuild(args, config) {
 
 async function cmdDev(args, config) {
   const port = Number(args.port) || 4321;
+  // First run of `folio studio` in an empty folder: start a blank folio.json and open the Content screen,
+  // where GitHub import and resume upload fill it in.
+  let start = '/studio';
+  if (args.open && !existsSync(config)) {
+    await writeConfig(config, TEMPLATE);
+    console.log(`${c.g('✓')} created ${relative(process.cwd(), config) || config} ${c.dim('· fill it in from Studio: import GitHub or upload your resume')}`);
+    start = '/studio?view=content';
+  }
   const { url } = await serve({ config, port, theme: args.theme });
   console.log(`${c.m('✦ folio')} studio at ${c.b(`${url}/studio`)}  ·  your site at ${c.b(url)}\n  ${c.dim('every design, version and round is in Studio · edits reload live · ctrl+c to stop')}`);
   if (args.open) {
     // Best effort: open Studio in the default browser.
     const opener = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'explorer' : 'xdg-open';
-    execFile(opener, [`${url}/studio`], () => {});
+    execFile(opener, [`${url}${start}`], () => {});
   }
   if (existsSync(config)) printWarnings(validate(await loadConfig(config)).warnings);
 }
