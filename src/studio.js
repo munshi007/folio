@@ -650,7 +650,9 @@ function sketchThumb(id) {
 async function renderExplore() {
   const data = await api('/api/sketches');
   const main = $('main');
-  const liked = Object.keys(data.picks.liked);
+  const built = new Set(data.built || []);
+  // Only likes that haven't become full sites yet are offered for building.
+  const liked = Object.keys(data.picks.liked).filter((id) => !built.has(id));
   const pickIt = async (id, value) => { try { await api('/api/sketches/' + id + '/pick', { value }); refresh(); } catch (e) { toast(e.message); } };
   const newRound = async (agent) => { try { const r = await api('/api/sketches', agent ? { count: 12, agent: true } : { count: 12 }); toast(agent ? 'Your AI agent will invent 12 looks' : r.specs.length + ' new looks'); refresh(); } catch (e) { toast(e.message); } };
   fill(main, 
@@ -674,7 +676,7 @@ async function renderExplore() {
       h('div', { class: 'grid' }, r.specs.map((sp) => {
         const on = !!data.picks.liked[sp.id], off = !!data.picks.skipped[sp.id];
         return h('article', { class: 'card sk' + (on ? ' liked' : '') + (off ? ' skipped' : '') }, sketchThumb(sp.id),
-          h('div', { class: 'body' }, h('div', { class: 'top' }, h('b', null, sp.title), sp.wild ? h('span', { class: 'badge wild' }, 'surprise') : null),
+          h('div', { class: 'body' }, h('div', { class: 'top' }, h('b', null, sp.title), built.has(sp.id) ? h('a', { class: 'badge mine', href: '/studio?view=library', style: 'text-decoration:none' }, 'built ✓') : sp.wild ? h('span', { class: 'badge wild' }, 'surprise') : null),
             h('span', { class: 'desc', style: 'min-height:0' }, sp.note || sp.mood),
             h('div', { class: 'acts' },
               h('button', { class: 'btn' + (on ? ' lime' : ''), type: 'button', 'aria-pressed': String(on), onclick: () => pickIt(sp.id, on ? null : 'like') }, on ? '♥ Liked' : '♡ Like'),
@@ -723,8 +725,8 @@ async function renderPublish() {
     out.textContent = host === 'files' ? 'Building…' : 'Publishing…';
     try {
       const r = await api('/api/publish', { host, confirm: host === 'github-pages' ? true : undefined });
-      out.textContent = host === 'files' ? 'Built: your site is in ' + r.outDir + '. Upload that folder to any static host.' : 'Published. Live at ' + r.url + ' in about a minute.';
-      toast(host === 'files' ? 'Files built' : 'Published');
+      out.textContent = host === 'files' ? 'Built: your site is in ' + r.outDir + '. Upload that folder to any static host.' : r.warning ? 'Uploaded, not live yet. ' + r.warning : 'Published. Live at ' + r.url + ' in about a minute.';
+      toast(host === 'files' ? 'Files built' : r.warning ? 'Uploaded: one step left' : 'Published');
       if (host !== 'files') refresh();
     } catch (e) { out.textContent = 'Not published: ' + e.message; }
   };

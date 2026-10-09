@@ -1036,3 +1036,22 @@ test('without a persona, the three quick answers still shape rounds and finish s
     srv.close();
   }
 });
+
+test('a liked look is built into a full site only once', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-once-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  const { autoRound } = await import('../src/explore.js');
+  const r = await autoRound(openStore(dir), { persona: null, count: 4, seed: 2 });
+  const srv = await serve({ config: join(dir, 'folio.json'), port: 0 });
+  const u = `http://127.0.0.1:${srv.port}`;
+  const post = (path, body) => fetch(u + path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1' }, body: JSON.stringify(body) });
+  try {
+    assert.equal((await post('/api/sketches/build', { ids: [r.specs[0].id] })).status, 200);
+    assert.equal((await post('/api/sketches/build', { ids: [r.specs[0].id] })).status, 400, 'already built');
+    const j = await (await post('/api/sketches/build', { ids: [r.specs[0].id, r.specs[1].id] })).json();
+    assert.equal(j.progress.total, 1, 'only the new one is built');
+    assert.ok((await (await fetch(u + '/api/sketches')).json()).built.includes(r.specs[0].id));
+  } finally {
+    srv.close();
+  }
+});

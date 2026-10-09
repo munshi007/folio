@@ -7,7 +7,7 @@ import { build, loadConfig } from './build.js';
 import { validate, normalize } from './schema.js';
 import { loadTheme } from './themes.js';
 import { checkTheme } from './themecheck.js';
-import { deploy, parseGitHubRemote, pagesUrl } from './deploy.js';
+import { deploy, parseGitHubRemote, pagesUrl, pagesSource } from './deploy.js';
 import { recordPublish } from './library.js';
 
 // A phone number: 9–15 digits in one run, allowing spaces, dots, dashes and brackets, and not a date.
@@ -65,7 +65,11 @@ export async function publishCheck({ configPath, base }) {
     remote = execFileSync('git', ['remote', 'get-url', 'origin'], { cwd: base, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
   } catch {}
   const gh = remote ? parseGitHubRemote(remote) : null;
-  if (gh) add('ok', `Will publish to ${pagesUrl(gh)}`);
+  if (gh) {
+    const served = pagesSource(gh);
+    if (served && served !== 'gh-pages') add('warn', `${pagesUrl(gh)} currently shows the site on the "${served}" branch. Publishing puts your new site on "gh-pages"; the live site switches only when you change Settings → Pages to gh-pages.`);
+    else add('ok', `Will publish to ${pagesUrl(gh)}`);
+  }
   else add('warn', remote ? 'Your git remote isn’t GitHub; use "Build files" and host them anywhere' : 'No GitHub repo connected here yet; use "Build files", or create a repo first (git init && gh repo create <name> --public --source=. --push)');
 
   return { theme, items, canPublish: !items.some((i) => i.level === 'error') && Boolean(gh), url: gh ? pagesUrl(gh) : null, remote: Boolean(remote) };
@@ -80,7 +84,7 @@ export async function publish({ configPath, base, store, host }) {
   const check = await publishCheck({ configPath, base });
   if (!check.canPublish) throw new Error(check.items.find((i) => i.level === 'error')?.text || 'connect a GitHub repo first');
   const { outDir, profile } = await build({ config: configPath, out: `${base}/dist` });
-  const { url } = await deploy({ outDir, cwd: base });
+  const { url, warning } = await deploy({ outDir, cwd: base });
   await recordPublish(store, { design: profile.theme, host, url });
-  return { host, url, theme: profile.theme };
+  return { host, url, theme: profile.theme, warning };
 }

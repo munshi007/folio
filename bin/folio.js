@@ -200,14 +200,12 @@ async function cmdDeploy(args, config) {
       return;
     }
   }
-  const { url, pagesEnabled } = await deploy({ outDir });
+  const { url, warning } = await deploy({ outDir });
   const raw = await loadConfig(config);
   await recordPublish(openStore(dirname(config)), { design: raw.theme, host: 'github-pages', url });
   console.log(`${c.g('✓')} pushed to gh-pages ${c.dim('(recorded in Studio → publish history)')}`);
-  if (url) {
-    console.log(`  live in ~1 min at ${c.b(url)}`);
-    if (!pagesEnabled) console.log(c.dim('  if it 404s: repo Settings → Pages → Source: "Deploy from a branch", branch gh-pages'));
-  }
+  if (warning) console.log(`  ${c.y('!')} ${warning}`);
+  else if (url) console.log(`  live in ~1 min at ${c.b(url)}`);
 }
 
 const NAME_RE = /^[a-z0-9][a-z0-9-]{0,39}$/;

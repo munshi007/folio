@@ -53,15 +53,31 @@ export async function deploy({ outDir, cwd = process.cwd(), branch = 'gh-pages' 
     await rm(tmp, { recursive: true, force: true });
   }
 
-  // Best effort: switch GitHub Pages on for that branch if the gh CLI is available.
+  // Best effort: switch GitHub Pages on for that branch if the gh CLI is available. A repo that already serves
+  // Pages from another branch (often an existing site on main) is never switched over silently: the push
+  // succeeded, but the live site only changes when the person flips the source, so say exactly that.
   let pagesEnabled = false;
+  let servedBranch = null;
   if (gh) {
     try {
       execFileSync('gh', ['api', `repos/${gh.owner}/${gh.repo}/pages`, '-X', 'POST', '-f', `source[branch]=${branch}`, '-f', 'source[path]=/'], { stdio: 'ignore' });
       pagesEnabled = true;
+      servedBranch = branch;
     } catch {
-      // Already enabled, or gh missing / not logged in. Either way the push succeeded.
+      servedBranch = pagesSource(gh);
     }
   }
-  return { url: gh ? pagesUrl(gh) : null, remote, pagesEnabled };
+  const warning = !gh ? null : servedBranch === branch ? null : servedBranch
+    ? `GitHub Pages for ${gh.owner}/${gh.repo} serves the "${servedBranch}" branch, so your live site hasn't changed yet. Your new site is on "${branch}". To make it live: GitHub → Settings → Pages → Branch: ${branch} (switch back any time).`
+    : `Couldn't confirm GitHub Pages settings (is the gh CLI logged in?). Make sure Settings → Pages serves the "${branch}" branch.`;
+  return { url: gh ? pagesUrl(gh) : null, remote, pagesEnabled, servedBranch, warning };
+}
+
+// Which branch GitHub Pages serves for a repo, or null if Pages is off or it can't be checked.
+export function pagesSource(gh) {
+  try {
+    return execFileSync('gh', ['api', `repos/${gh.owner}/${gh.repo}/pages`, '--jq', '.source.branch'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() || null;
+  } catch {
+    return null;
+  }
 }

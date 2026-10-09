@@ -105,6 +105,18 @@ async function sendJob(res, job, ctx) {
   return send(res, 200, job);
 }
 
+// Sketch ids that earlier rounds already turned into full sites (run.json fromSketches).
+async function builtSketches(base) {
+  const ids = new Set();
+  const { readdir, readFile } = await import('node:fs/promises');
+  let runs = [];
+  try { runs = (await readdir(join(base, '.folio', 'gen'))).filter((x) => /^\d+$/.test(x)); } catch {}
+  for (const r of runs) {
+    try { for (const id of JSON.parse(await readFile(join(base, '.folio', 'gen', r, 'run.json'), 'utf8')).fromSketches || []) ids.add(id); } catch {}
+  }
+  return ids;
+}
+
 export async function handleApi(req, res, url, ctx) {
   const { store, configPath, base, port } = ctx;
   const path = url.pathname;
@@ -195,8 +207,8 @@ export async function handleApi(req, res, url, ctx) {
     }
     if (path === '/api/sketches') {
       if (req.method === 'GET') {
-        const [rounds, picks, taste] = await Promise.all([listRounds(store), readPicks(store), tasteFrom(store)]);
-        return send(res, 200, { rounds, picks, taste: tasteSummary(taste) }), true;
+        const [rounds, picks, taste, built] = await Promise.all([listRounds(store), readPicks(store), tasteFrom(store), builtSketches(base)]);
+        return send(res, 200, { rounds, picks, taste: tasteSummary(taste), built: [...built] }), true;
       }
       if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
       const body = await readJSONBody(req);
@@ -211,8 +223,10 @@ export async function handleApi(req, res, url, ctx) {
     if (path === '/api/sketches/build') {
       if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
       const body = await readJSONBody(req);
-      const ids = Array.isArray(body.ids) ? body.ids.filter(validSpecId).slice(0, 6) : [];
-      if (!ids.length) return send(res, 400, { error: 'pick 1–6 sketches to build' }), true;
+      // A look that already became a full site isn't built a second time.
+      const built = await builtSketches(base);
+      const ids = Array.isArray(body.ids) ? body.ids.filter((id) => validSpecId(id) && !built.has(id)).slice(0, 6) : [];
+      if (!ids.length) return send(res, 400, { error: 'Those looks are already built: find them in Designs' }), true;
       const specs = [];
       for (const id of ids) {
         const sp = await getSpec(store, id);
