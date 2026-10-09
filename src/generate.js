@@ -266,6 +266,13 @@ Full rubric: skills/folio/DESIGN.md.
 // Who the person is, from their persona card, so every designer starts from the same read of them.
 export function personaSection(persona) {
   if (!persona) return '';
+  // Before any persona is written, the three quick answers are all we know about their taste: use them.
+  if (!persona.headline) {
+    const a = persona.answers || {};
+    const line = (k, label) => ((a[k] || []).length ? `- **${label}:** ${a[k].join(', ')}\n` : '');
+    const body = line('feel', 'how people should feel') + line('show', 'what to show most') + line('taste', 'what they like visually');
+    return body ? `\n## What they told us\n${body}` : '';
+  }
   const traits = (persona.traits || []).map((t) => `- **${t.key}:** ${t.value}${t.quote ? ` (“${t.quote}”)` : ''}`).join('\n');
   const d = persona.dials || {};
   return `

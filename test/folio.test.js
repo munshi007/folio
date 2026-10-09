@@ -1017,3 +1017,22 @@ test('studio API key: format-checked, kept in memory only, never echoed back', a
     srv.close();
   }
 });
+
+test('without a persona, the three quick answers still shape rounds and finish step 1', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-ans-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  const store = openStore(dir);
+  await store.data.writeJSON('answers.json', { feel: ['Playful'], show: [], taste: ['Light & airy'] });
+  const job = await createJob(store, dir, normalize(example), { count: 2, cli: 'folio', seed: 5 });
+  const brief = readFileSync(join(dir, '.folio', 'gen', String(job.run), 'brief-1.md'), 'utf8');
+  assert.match(brief, /What they told us/);
+  assert.match(brief, /Light & airy/);
+  const srv = await serve({ config: join(dir, 'folio.json'), port: 0 });
+  try {
+    const p = await (await fetch(`http://127.0.0.1:${srv.port}/api/progress`)).json();
+    assert.equal(p.persona, false);
+    assert.equal(p.answers, true);
+  } finally {
+    srv.close();
+  }
+});

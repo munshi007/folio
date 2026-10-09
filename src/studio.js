@@ -292,7 +292,8 @@ async function openCleanup() {
 $('#cleanup').addEventListener('click', () => openCleanup().catch((e) => toast(e.message)));
 
 function paintSteps(p) {
-  const done = { you: p.content && p.persona, explore: p.liked > 0, library: p.chosen, publish: p.published };
+  // Step 1 is done with real content plus either a persona or the three quick answers (no builder needed).
+  const done = { you: p.content && (p.persona || p.answers), explore: p.liked > 0, library: p.chosen, publish: p.published };
   for (const a of document.querySelectorAll('.steps a')) a.classList.toggle('done', !!done[a.dataset.view]);
   for (const a of document.querySelectorAll('.steps a.done i')) a.textContent = '✓';
 }
@@ -488,11 +489,12 @@ function renderLibrary(lib) {
       h('div', { class: 'row' }, h('button', { class: 'btn pri', type: 'button', onclick: () => { state.newRun = !state.newRun; refresh(); } }, 'New designs'))),
     waitingBanner(),
     state.newRun ? newRunPanel() : null,
-    cur || curBuiltin ? h('section', { class: 'live', 'aria-label': 'Your site' },
-      thumb(cur ? cur.id : curBuiltin.id),
+    !cur && curBuiltin ? h('p', { class: 'sub', style: 'margin:0' }, 'Until you pick a design, your site uses the built-in “' + curBuiltin.id + '” theme.') : null,
+    cur ? h('section', { class: 'live', 'aria-label': 'Your site' },
+      thumb(cur.id, null, cur.latest),
       h('div', { style: 'flex:1 1 260px;min-width:0' },
         h('div', { class: 'k' }, lib.publishes.length ? '● live' : '● your site'),
-        h('div', { class: 't' }, cur ? titleOf(cur) : curBuiltin.id + ' (built-in theme)'),
+        h('div', { class: 't' }, titleOf(cur)),
         h('div', { class: 'd' }, lib.publishes.length ? 'Published ' + ago(lib.publishes[0].at) : 'Not published yet')),
       h('div', { class: 'row' },
         h('a', { class: 'btn', href: '/', target: '_blank', rel: 'noopener' }, 'View ↗'),
@@ -580,16 +582,17 @@ async function renderPersona() {
       h('legend', { style: 'font-weight:500;padding:0;margin-bottom:6px' }, q.title),
       h('div', { class: 'row' }, q.options.map((o) => { const on = (ans[k] || []).includes(o); return h('button', { class: 'chip', type: 'button', 'aria-pressed': String(on), onclick: async () => {
         const next = { ...ans, [k]: on ? (ans[k] || []).filter((x) => x !== o) : [...(ans[k] || []), o] };
-        try { await api('/api/persona', { answers: next }); renderPersona(); } catch (e) { toast(e.message); } } }, o); })))));
+        try { await api('/api/persona', { answers: next }); refresh(); } catch (e) { toast(e.message); } } }, o); })))));
 
   if (!persona) {
     fill(main, 
       youTabs('persona'),
       waitingBanner(),
-      h('header', null, h('h1', null, 'How we read you'), h('p', { class: 'sub' }, 'Your agent reads your resume and repos, then writes a persona card you can see and correct. Every design starts from it.')),
+      h('header', null, h('h1', null, 'How we read you'), h('p', { class: 'sub' }, 'Three quick questions are enough to start. For a fuller read, folio can study your resume and repos and write a persona card you can correct.')),
       h('div', { class: 'cols' }, qBlock,
-        h('div', { class: 'box' }, h('b', null, 'Read me'), h('p', { class: 'sub', style: 'margin:0' }, 'Starts a job for your agent. Answer the questions first if you can; it will use them.'),
-          h('div', { class: 'row' }, h('button', { class: 'btn pri', type: 'button', onclick: async () => { try { await api('/api/persona/read', {}); toast('Ready for your agent'); refresh(); } catch (e) { toast(e.message); } } }, 'Ask my agent to read me')))));
+        h('div', { class: 'box' }, h('b', null, 'Optional: a fuller read'), h('p', { class: 'sub', style: 'margin:0' }, 'folio studies your resume and repos and writes a persona card: your mood, voice and taste, quoted from your own words. Uses your API key or AI agent.'),
+          h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: async () => { try { await api('/api/persona/read', {}); toast('Reading you'); refresh(); } catch (e) { toast(e.message); } } }, 'Read me')))),
+      Object.values(ans).some((v) => v && v.length) ? nextBar('That\'s enough to start.', 'Next: explore looks', '/studio?view=explore') : null);
     return;
   }
   const dial = (k, label) => h('label', { class: 'dial' }, label,
@@ -658,7 +661,7 @@ async function renderExplore() {
           ? [h('span', null, 'Leaning ', h('b', null, data.taste.likes.join(', ') || '…')), data.taste.dislikes.length ? h('span', { class: 'sub', style: 'margin:0' }, 'Less ' + data.taste.dislikes.join(', ')) : null]
           : h('span', { class: 'sub', style: 'margin:0' }, 'Like or skip a few sketches and folio learns.'))),
     waitingBanner(),
-    state.progress && !state.progress.persona ? h('div', { class: 'nextbar' }, h('span', null, 'Looks fit much better once we know you. Finish step 1 first?'), h('a', { class: 'btn', href: '/studio?view=persona' }, 'How we read you →')) : null,
+    state.progress && !state.progress.persona && !state.progress.answers ? h('div', { class: 'nextbar' }, h('span', null, 'Looks fit much better once we know you. Answer three quick questions first?'), h('a', { class: 'btn', href: '/studio?view=persona' }, 'Three questions →')) : null,
     h('div', { class: 'row' },
       h('button', { class: 'btn pri', type: 'button', onclick: () => newRound(false) }, data.rounds.length ? 'Show me 12 more' : 'Show me 12 looks'),
       h('button', { class: 'linkbtn', type: 'button', onclick: () => newRound(true) }, 'or ask my AI agent to invent 12')),
@@ -812,7 +815,7 @@ async function renderContent() {
     h('div', { class: 'cols' },
       h('section', { class: 'box', 'aria-label': 'Import from GitHub' }, h('b', null, 'Import from GitHub'), h('p', { class: 'sub', style: 'margin:0' }, 'Adds your name, photo, bio and best repos. Never overwrites what you wrote.'),
         h('form', { class: 'row', onsubmit: async (e) => { e.preventDefault(); status.textContent = 'Importing…'; try { const r = await api('/api/content/github', { user: ghIn.value.trim() }); state.contentData = null; state.draft = null; toast('Imported ' + (r.added.length ? r.added.length + ' projects' : 'your profile')); refresh(); } catch (err) { status.textContent = err.message; } } }, ghIn, h('button', { class: 'btn', type: 'submit' }, 'Import'))),
-      h('section', { class: 'box', 'aria-label': 'Resume' }, h('b', null, 'Your resume or LinkedIn export'), h('p', { class: 'sub', style: 'margin:0' }, 'Kept on this computer. Your agent reads it and fills the form; it never invents facts.'),
+      h('section', { class: 'box', 'aria-label': 'Resume' }, h('b', null, 'Your resume or LinkedIn export'), h('p', { class: 'sub', style: 'margin:0' }, 'Kept on this computer. folio reads it and fills the form below (uses your API key or AI agent), and never invents facts.'),
         h('div', { class: 'row' }, fileIn, h('button', { class: 'btn pri', type: 'button', onclick: async () => {
           const f = fileIn.files[0]; if (!f) return toast('Choose a file first');
           status.textContent = 'Uploading…';
@@ -843,7 +846,7 @@ async function renderContent() {
     h('div', { class: 'savebar' }, h('b', null, state.dirty ? 'Unsaved changes' : 'All saved'),
       h('div', { class: 'row' },
         h('button', { class: 'btn', type: 'button', onclick: () => { state.draft = null; state.dirty = false; renderContent(); } }, 'Discard'),
-        h('button', { class: 'btn lime', type: 'button', onclick: async () => { try { const r = await api('/api/content', { content: draft }); state.contentData = null; state.draft = null; state.dirty = false; toast(r.unchanged ? 'No changes to save' : 'Saved'); renderContent(); } catch (e) { toast(e.message); } } }, 'Save'))));
+        h('button', { class: 'btn lime', type: 'button', onclick: async () => { try { const r = await api('/api/content', { content: draft }); state.contentData = null; state.draft = null; state.dirty = false; toast(r.unchanged ? 'No changes to save' : 'Saved'); refresh(); } catch (e) { toast(e.message); } } }, 'Save'))));
 }
 
 async function refresh(background) {
@@ -861,7 +864,7 @@ async function refresh(background) {
       // Plain /studio opens where the person is in the flow: the first unfinished step.
       if (bare && progress && !refresh.routed) {
         refresh.routed = true;
-        const to = !progress.content ? 'content' : !progress.persona ? 'persona' : !progress.liked && !progress.designs ? 'explore' : null;
+        const to = !progress.content ? 'content' : !progress.persona && !progress.answers ? 'persona' : !progress.liked && !progress.designs ? 'explore' : null;
         if (to) { location.replace('/studio?view=' + to); return; }
       }
       paintActivity();

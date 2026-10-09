@@ -258,6 +258,7 @@ export async function handleApi(req, res, url, ctx) {
       return send(res, 200, {
         content: !validate(raw).errors.length && Boolean(raw.name) && raw.name !== 'Your Name',
         persona: Boolean(await store.data.readJSON('persona.json', null)),
+        answers: Object.values((await store.data.readJSON('answers.json', null)) || {}).some((v) => Array.isArray(v) && v.length),
         liked: Object.keys(picks.liked).length,
         designs: lib.designs.filter((d) => !d.pending && !d.missing).length,
         chosen: lib.designs.some((d) => d.current),
