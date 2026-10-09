@@ -45,6 +45,11 @@ export async function writeContent(store, configPath, next, note = 'you edited')
     const merged = { ...cur, ...next, theme: cur.theme, style: cur.style, accent: next.accent ?? cur.accent };
     if (merged.style === undefined) delete merged.style;
     if (merged.accent === undefined) delete merged.accent;
+    // Saving without changes isn't a new version.
+    if (JSON.stringify(merged) === JSON.stringify(cur)) {
+      const index = await store.data.readJSON('content/index.json', []);
+      return { content: cur, version: index.length ? index[index.length - 1].n : null, unchanged: true, ...validate(cur) };
+    }
     await writeFile(configPath, `${JSON.stringify(merged, null, 2)}\n`);
     const n = await snapshot(store, merged, note);
     return { content: merged, version: n, ...validate(merged) };

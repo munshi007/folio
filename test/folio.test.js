@@ -995,3 +995,25 @@ test('sketch rounds can be deleted with their likes; wildcards respect the avoid
     assert.equal(new Set(specs.map((sp) => sp.title)).size, specs.length, 'unique titles');
   }
 });
+
+test('studio API key: format-checked, kept in memory only, never echoed back', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-key-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  const srv = await serve({ config: join(dir, 'folio.json'), port: 0 });
+  const u = `http://127.0.0.1:${srv.port}`;
+  const post = (path, body, headers = {}) => fetch(u + path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1', ...headers }, body: JSON.stringify(body) });
+  const saved = process.env.ANTHROPIC_API_KEY;
+  delete process.env.ANTHROPIC_API_KEY;
+  try {
+    assert.equal((await post('/api/runner/key', { key: 'not-a-key' })).status, 400);
+    assert.equal((await post('/api/runner/key', { key: 'sk-ant-' + 'x'.repeat(30) }, { Origin: 'https://evil.example' })).status, 403);
+    const st = await (await fetch(u + '/api/runner')).json();
+    assert.equal(st.available, false);
+    assert.ok(!JSON.stringify(st).includes('sk-ant'), 'the key is never sent to the page');
+    assert.equal((await post('/api/runner/start', {})).status, 400, 'no key, no build');
+    assert.ok(!readFileSync(join(dir, 'folio.json'), 'utf8').includes('sk-ant'));
+  } finally {
+    if (saved !== undefined) process.env.ANTHROPIC_API_KEY = saved;
+    srv.close();
+  }
+});

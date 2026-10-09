@@ -81,9 +81,28 @@ async function themeFromSource(id, source) {
 // the page only learns whether one is set.
 const runners = new Map();
 const kitBusy = new Set();
+// A key pasted into Studio lives only in this process's memory: never written to disk, never sent to the page,
+// gone when folio stops. A key in the environment always wins.
+let sessionKey = null;
+const apiKey = () => process.env.ANTHROPIC_API_KEY || sessionKey;
 function runnerState(base) {
   const r = runners.get(base);
-  return { available: Boolean(process.env.ANTHROPIC_API_KEY), running: Boolean(r?.running), log: r?.log.slice(-12) ?? [], result: r?.result ?? null };
+  return { available: Boolean(apiKey()), keySource: process.env.ANTHROPIC_API_KEY ? 'env' : sessionKey ? 'studio' : null, running: Boolean(r?.running), log: r?.log.slice(-12) ?? [], result: r?.result ?? null };
+}
+// Start building whatever is waiting, if there's a key and nothing is running yet.
+async function startRunner({ store, base, configPath }) {
+  if (!apiKey() || runners.get(base)?.running) return;
+  const { runJobs, DEFAULT_MODEL } = await import('./runner.js');
+  const r = { running: true, log: [], result: null };
+  runners.set(base, r);
+  runJobs({ store, base, configPath, apiKey: apiKey(), model: process.env.FOLIO_MODEL || DEFAULT_MODEL, log: (m) => r.log.push(m) })
+    .then((out) => { r.result = out; }, (e) => { r.result = { designed: 0, failed: 1, errors: [e.message] }; r.log.push(e.message); })
+    .finally(() => { r.running = false; });
+}
+// New work starts building straight away when Studio has a key.
+async function sendJob(res, job, ctx) {
+  await startRunner(ctx);
+  return send(res, 200, job);
 }
 
 export async function handleApi(req, res, url, ctx) {
@@ -154,9 +173,9 @@ export async function handleApi(req, res, url, ctx) {
       if (path.endsWith('restore')) return send(res, 200, await restorePersona(store, Number(body.n))), true;
       if (path.endsWith('correct')) {
         await addCorrection(store, body.text);
-        return send(res, 200, await createPersonaJob(store, base, { correction: String(body.text).slice(0, 300), cli: CLI })), true;
+        return sendJob(res, await createPersonaJob(store, base, { correction: String(body.text).slice(0, 300), cli: CLI }), ctx), true;
       }
-      return send(res, 200, await createPersonaJob(store, base, { cli: CLI })), true;
+      return sendJob(res, await createPersonaJob(store, base, { cli: CLI }), ctx), true;
     }
 
     // ---- references ----
@@ -183,7 +202,7 @@ export async function handleApi(req, res, url, ctx) {
       const body = await readJSONBody(req);
       const count = body.count == null ? 12 : Number(body.count);
       if (!(Number.isInteger(count) && count >= 4 && count <= 24)) return send(res, 400, { error: 'count must be 4–24' }), true;
-      if (body.agent) return send(res, 200, await createSketchJob(store, base, { count, cli: CLI })), true;
+      if (body.agent) return sendJob(res, await createSketchJob(store, base, { count, cli: CLI }), ctx), true;
       const raw = await loadConfig(configPath);
       const persona = await store.data.readJSON('persona.json', null);
       const answers = persona ? null : await store.data.readJSON('answers.json', null);
@@ -203,7 +222,7 @@ export async function handleApi(req, res, url, ctx) {
       const raw = await loadConfig(configPath);
       const { errors } = validate(raw);
       if (errors.length) return send(res, 400, { error: `fix folio.json first: ${errors.join('; ')}` }), true;
-      return send(res, 200, await createJob(store, base, normalize(raw), { sketches: specs, cli: CLI })), true;
+      return sendJob(res, await createJob(store, base, normalize(raw), { sketches: specs, cli: CLI }), ctx), true;
     }
     const sm = path.match(/^\/api\/sketches\/([^/]+)\/pick$/);
     if (sm) {
@@ -315,7 +334,7 @@ export async function handleApi(req, res, url, ctx) {
           const { html } = await renderHtml(raw, { theme: id, baseDir: base, pure: true });
           mix.traits[id] = designTraits(html);
         }
-        return send(res, 200, await createJob(store, base, normalize(raw), { mix, cli: CLI })), true;
+        return sendJob(res, await createJob(store, base, normalize(raw), { mix, cli: CLI }), ctx), true;
       }
       const like = body.like == null ? null : String(body.like);
       if (like != null && !(await listThemes(base)).some((t) => t.name === like)) return send(res, 400, { error: `unknown design "${like}"` }), true;
@@ -323,8 +342,7 @@ export async function handleApi(req, res, url, ctx) {
       if (!KEEPS[keep]) return send(res, 400, { error: `keep must be one of ${Object.keys(KEEPS).join(', ')}` }), true;
       const count = body.count == null ? undefined : Number(body.count);
       if (count !== undefined && !(Number.isInteger(count) && count >= 1 && count <= 12)) return send(res, 400, { error: 'count must be 1–12' }), true;
-      const job = await createJob(store, base, normalize(raw), { like, keep, count, cli: CLI });
-      return send(res, 200, job), true;
+      return sendJob(res, await createJob(store, base, normalize(raw), { like, keep, count, cli: CLI }), ctx), true;
     }
 
     const jm = path.match(/^\/api\/jobs\/([^/]+)\/cancel$/);
@@ -365,14 +383,22 @@ export async function handleApi(req, res, url, ctx) {
     if (path === '/api/runner' && req.method === 'GET') return send(res, 200, runnerState(base)), true;
     if (path === '/api/runner/start') {
       if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
-      if (!process.env.ANTHROPIC_API_KEY) return send(res, 400, { error: 'start folio with ANTHROPIC_API_KEY set to build without an agent' }), true;
-      if (runners.get(base)?.running) return send(res, 200, runnerState(base)), true;
-      const { runJobs, DEFAULT_MODEL } = await import('./runner.js');
-      const r = { running: true, log: [], result: null };
-      runners.set(base, r);
-      runJobs({ store, base, configPath, apiKey: process.env.ANTHROPIC_API_KEY, model: process.env.FOLIO_MODEL || DEFAULT_MODEL, log: (m) => r.log.push(m) })
-        .then((out) => { r.result = out; }, (e) => { r.result = { designed: 0, failed: 1, errors: [e.message] }; })
-        .finally(() => { r.running = false; });
+      if (!apiKey()) return send(res, 400, { error: 'Add an Anthropic API key first' }), true;
+      await startRunner(ctx);
+      return send(res, 200, runnerState(base)), true;
+    }
+    if (path === '/api/runner/key') {
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      const body = await readJSONBody(req);
+      if (body.key === null) { sessionKey = null; return send(res, 200, runnerState(base)), true; }
+      const key = String(body.key || '').trim();
+      if (!/^sk-ant-[A-Za-z0-9_-]{20,}$/.test(key)) return send(res, 400, { error: 'That doesn\'t look like an Anthropic API key (it starts with sk-ant-)' }), true;
+      // Check it once, so a typo shows up here instead of as a failed build later.
+      const check = await fetch('https://api.anthropic.com/v1/models?limit=1', { headers: { 'x-api-key': key, 'anthropic-version': '2023-06-01' } }).catch(() => null);
+      if (!check) return send(res, 502, { error: 'Couldn\'t reach Anthropic to check the key. Are you online?' }), true;
+      if (check.status === 401 || check.status === 403) return send(res, 400, { error: 'Anthropic rejected that key' }), true;
+      sessionKey = key;
+      await startRunner(ctx);
       return send(res, 200, runnerState(base)), true;
     }
 
@@ -390,7 +416,7 @@ export async function handleApi(req, res, url, ctx) {
       if (path.endsWith('github')) return send(res, 200, await importGitHub(store, configPath, body.user)), true;
       const files = (Array.isArray(body.files) ? body.files : []).filter((f) => /^\.folio\/inputs\/[a-z0-9-]{1,40}\.(pdf|docx|txt|md|zip)$/.test(f));
       if (!files.length) return send(res, 400, { error: 'upload a file first' }), true;
-      return send(res, 200, await createContentJob(store, base, { files, cli: CLI })), true;
+      return sendJob(res, await createContentJob(store, base, { files, cli: CLI }), ctx), true;
     }
     if (path === '/api/content/upload') {
       // Raw file body (not JSON), so the same-origin + X-Folio rules are checked here by hand.

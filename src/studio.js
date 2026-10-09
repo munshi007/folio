@@ -216,9 +216,14 @@ async function api(path, body) {
   if (!r.ok) throw new Error(data.error || r.statusText);
   return data;
 }
-// Live preview thumbnail: the real site, sandboxed, scaled down to fit.
-function thumb(id, v) {
+// Live preview thumbnail: the real site, sandboxed, scaled down to fit. Thumbnails are kept between redraws
+// (keyed by design + version), so a re-render moves the existing iframe instead of reloading it.
+const thumbCache = new Map();
+function thumb(id, v, key) {
+  const k = 'd:' + id + '@' + (key ?? v ?? '');
+  if (thumbCache.has(k)) return thumbCache.get(k);
   const box = h('div', { class: 'thumb' });
+  thumbCache.set(k, box);
   const src = '/preview/' + encodeURIComponent(id) + (v ? '?v=' + v : '');
   const f = h('iframe', { src, sandbox: 'allow-scripts', loading: 'lazy', tabindex: '-1', title: id + ' preview', 'aria-hidden': 'true' });
   box.append(f);
@@ -239,7 +244,8 @@ const params = new URLSearchParams(location.search);
 
 async function useDesign(id) {
   await api('/api/site/theme', { id });
-  toast('Your site now uses ' + id);
+  const d = state.lib && state.lib.designs.find((x) => x.id === id);
+  toast('Your site is now ' + (d ? titleOf(d) : id));
   await refresh();
 }
 async function flag(id, f, value) {
@@ -299,21 +305,63 @@ function paintActivity() {
   const waiting = act.some((j) => j.progress.waiting > 0);
   const open = box.querySelector('details') ? box.querySelector('details').open : false;
   const r = state.runner || {};
-  fill(box, h('details', { class: 'activity', open: open || null },
+  fill(box, h('details', { class: 'activity', open: open || needsBuilder() || null },
     h('summary', null, h('span', { class: 'dot' }), h('span', null, 'Making ' + (total === 1 && act[0].kind === 'persona' ? 'your persona' : plural(total, 'thing')) + ' · ' + doneN + '/' + total)),
     h('div', { class: 'inner' },
       act.map((j) => h('div', { class: 'row between' }, h('span', null, jobTitle(j)),
         h('button', { class: 'linkbtn', type: 'button', onclick: async () => { if (!(await confirmDanger('Stop this?', 'Anything not made yet is dropped. Finished designs stay.', 'Stop'))) return; try { await api('/api/jobs/' + j.id + '/cancel', {}); toast('Stopped'); refresh(); } catch (e) { toast(e.message); } } }, 'stop'))),
       waiting ? (r.available
-        ? h('button', { class: 'btn pri', type: 'button', disabled: r.running, onclick: async () => { try { state.runner = await api('/api/runner/start', {}); toast('Building with your API key'); refresh(); } catch (e) { toast(e.message); } } }, r.running ? 'Building…' : 'Build now')
-        : h('div', null, 'Waiting for your AI agent. ', h('button', { class: 'linkbtn', type: 'button', onclick: howItWorks }, 'How does this work?'))) : null,
+        ? h('button', { class: 'btn pri', type: 'button', disabled: r.running, onclick: startBuild }, r.running ? 'Building…' : 'Build now')
+        : h('div', { class: 'row' }, h('button', { class: 'btn pri', type: 'button', onclick: askKey }, 'Add API key'), h('button', { class: 'linkbtn', type: 'button', onclick: howItWorks }, 'or use my AI agent'))) : null,
+      r.keySource === 'studio' ? h('span', { class: 'mono' }, 'using the key you added') : null,
       r.running && r.log.length ? h('span', { class: 'mono' }, r.log[r.log.length - 1]) : null)));
 }
+// Nothing gets built until an AI agent or an API key picks the work up. Say so plainly, with both ways forward.
+function waitingCount() {
+  const act = state.jobs.filter((j) => j.status === 'active');
+  return act.reduce((n, j) => n + j.progress.waiting, 0);
+}
+function needsBuilder() {
+  const r = state.runner || {};
+  const working = state.jobs.some((j) => j.status === 'active' && j.progress.working > 0);
+  return waitingCount() > 0 && !r.running && !working;
+}
+function waitingBanner() {
+  if (!needsBuilder()) return null;
+  const r = state.runner || {};
+  const n = waitingCount();
+  return h('div', { class: 'nextbar', style: 'border-color:var(--acc)' },
+    h('span', null, h('b', null, plural(n, 'thing') + ' waiting to be built. '), r.available ? 'Start building with your API key.' : 'folio needs a builder: your Anthropic API key, or your AI coding agent.'),
+    h('span', { class: 'row' },
+      r.available ? h('button', { class: 'btn pri', type: 'button', onclick: startBuild }, 'Build now')
+        : h('button', { class: 'btn pri', type: 'button', onclick: askKey }, 'Add API key'),
+      h('button', { class: 'btn', type: 'button', onclick: howItWorks }, 'Use my AI agent')));
+}
+async function startBuild() {
+  try { state.runner = await api('/api/runner/start', {}); toast('Building'); refresh(); } catch (e) { toast(e.message); }
+}
+function askKey() {
+  const input = h('input', { type: 'password', autocomplete: 'off', placeholder: 'sk-ant-…', 'aria-label': 'Anthropic API key', style: 'min-height:44px;border:1px solid var(--line2);border-radius:10px;padding:0 12px;font:inherit;background:var(--card);color:var(--ink);width:100%' });
+  const msg = h('p', { role: 'status' });
+  const save = async () => {
+    msg.textContent = 'Checking the key…';
+    try { state.runner = await api('/api/runner/key', { key: input.value }); dlg.close(); toast('Key added. Building now'); refresh(); } catch (e) { msg.textContent = e.message; }
+  };
+  fill($('.dbody', dlg), h('h3', null, 'Build with your Anthropic API key'),
+    h('p', null, 'folio sends each design brief to Claude with your key. The key stays in memory only while Studio runs: it is never saved to disk and only ever sent to api.anthropic.com.'),
+    h('form', { onsubmit: (e) => { e.preventDefault(); save(); } }, input),
+    msg,
+    h('p', null, 'Get a key at console.anthropic.com. Building a round of designs typically costs well under a dollar.'),
+    h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: () => dlg.close() }, 'Cancel'), h('button', { class: 'btn pri', type: 'button', onclick: save }, 'Add key and build')));
+  if (!dlg.open) dlg.showModal();
+  input.focus();
+}
+
 function howItWorks() {
   fill($('.dbody', dlg), h('h3', null, 'Who makes the designs?'),
     h('p', null, 'folio writes a brief for each design. Your AI coding agent (Claude Code, Cursor, Codex…) or your Anthropic API key turns briefs into real sites.'),
     h('p', null, h('b', null, 'With an agent: '), 'tell it “work on my folio jobs”. ', h('button', { class: 'linkbtn', type: 'button', onclick: () => copy(AGENT_ASK, 'Copied. Paste it to your agent') }, 'Copy that')),
-    h('p', null, h('b', null, 'With an API key: '), 'start folio with ANTHROPIC_API_KEY set and a “Build now” button appears here.'),
+    h('p', null, h('b', null, 'With an API key: '), h('button', { class: 'linkbtn', type: 'button', onclick: askKey }, 'add your Anthropic API key'), ' and everything waiting builds right away.'),
     h('div', { class: 'row' }, h('button', { class: 'btn dark', type: 'button', onclick: () => dlg.close() }, 'Got it')));
   if (!dlg.open) dlg.showModal();
 }
@@ -378,7 +426,7 @@ function card(d) {
   const picked = cmpGet().includes(d.id);
   let preview;
   if (d.pending || d.missing) preview = h('div', { class: 'waiting' }, d.missing ? 'File missing' : working ? 'Being designed…' : 'Waiting to be designed');
-  else { preview = thumb(d.id); preview.addEventListener('click', go); }
+  else { preview = thumb(d.id, null, d.latest); preview.onclick = go; }
   return h('article', { class: 'card' + (d.current ? ' cur' : '') + (d.archived ? ' arch' : '') }, preview,
     h('div', { class: 'body' },
       h('div', { class: 'top' }, h('b', null, titleOf(d)), d.current ? h('span', { class: 'badge mine' }, 'your site') : d.wildcard ? h('span', { class: 'badge wild' }, 'surprise') : null),
@@ -408,6 +456,7 @@ async function deleteRound(r, lib) {
 }
 
 function renderLibrary(lib) {
+  state.lib = lib;
   const main = $('main');
   const visible = lib.designs.filter((d) => state.filter === 'archived' ? d.archived : state.filter === 'favorites' ? d.favorite && !d.archived : !d.archived);
   const counts = { all: lib.designs.filter((d) => !d.archived).length, favorites: lib.designs.filter((d) => d.favorite && !d.archived).length, archived: lib.designs.filter((d) => d.archived).length };
@@ -437,6 +486,7 @@ function renderLibrary(lib) {
       h('div', null, h('h1', null, 'Your designs'),
         h('p', { class: 'sub' }, lib.designs.length ? plural(counts.all, 'design') + (counts.archived ? ' · ' + counts.archived + ' archived' : '') : 'Full sites built from the looks you liked.')),
       h('div', { class: 'row' }, h('button', { class: 'btn pri', type: 'button', onclick: () => { state.newRun = !state.newRun; refresh(); } }, 'New designs'))),
+    waitingBanner(),
     state.newRun ? newRunPanel() : null,
     cur || curBuiltin ? h('section', { class: 'live', 'aria-label': 'Your site' },
       thumb(cur ? cur.id : curBuiltin.id),
@@ -466,6 +516,7 @@ function renderLibrary(lib) {
 
 async function renderDesign(id) {
   const [d, lib] = await Promise.all([api('/api/designs/' + encodeURIComponent(id)), api('/api/library')]);
+  state.lib = lib;
   const info = lib.designs.find((x) => x.id === id) || {};
   const main = $('main');
   const sel = state.v && d.versions.some((v) => v.n === state.v) ? state.v : (d.versions[0] ? d.versions[0].n : null);
@@ -502,8 +553,7 @@ async function renderDesign(id) {
             h('button', { type: 'button', 'aria-pressed': String(device === 'desk'), onclick: () => { state.device = 'desk'; renderDesign(id); } }, 'Desktop'),
             h('button', { type: 'button', 'aria-pressed': String(device === 'phone'), onclick: () => { state.device = 'phone'; renderDesign(id); } }, 'Phone')),
           h('span', { class: 'mono' }, sel ? (sel === latest ? 'showing v' + sel + ' (latest)' : 'showing v' + sel + ' · not the latest') : 'no versions yet')),
-        h('div', { class: 'frame' + (device === 'phone' ? ' phone' : '') },
-          h('div', { class: 'win' }, h('iframe', { src: '/preview/' + encodeURIComponent(id) + (sel && sel !== latest ? '?v=' + sel : ''), sandbox: 'allow-scripts', title: id + ' preview' })))),
+        previewFrame('/preview/' + encodeURIComponent(id) + (sel && sel !== latest ? '?v=' + sel : ''), device, id)),
       h('aside', { class: 'panel', 'aria-label': 'History' },
         h('div', null, h('b', null, 'Versions'), h('p', { class: 'sub', style: 'margin:2px 0 0;font-size:13.5px' }, 'Click one to preview it. Restoring makes it the latest again.')),
         d.versions.length ? h('ol', { class: 'hist' }, d.versions.map((v) => h('li', { 'aria-current': String(v.n === sel) },
@@ -535,6 +585,7 @@ async function renderPersona() {
   if (!persona) {
     fill(main, 
       youTabs('persona'),
+      waitingBanner(),
       h('header', null, h('h1', null, 'How we read you'), h('p', { class: 'sub' }, 'Your agent reads your resume and repos, then writes a persona card you can see and correct. Every design starts from it.')),
       h('div', { class: 'cols' }, qBlock,
         h('div', { class: 'box' }, h('b', null, 'Read me'), h('p', { class: 'sub', style: 'margin:0' }, 'Starts a job for your agent. Answer the questions first if you can; it will use them.'),
@@ -549,6 +600,7 @@ async function renderPersona() {
   const saveWorlds = async (w) => { try { await api('/api/persona', { worlds: w }); refresh(); } catch (e) { toast(e.message); } };
   fill(main, 
     youTabs('persona'),
+    waitingBanner(),
     h('header', null, h('h1', null, persona.headline), h('p', { class: 'sub' }, persona.lede)),
     h('div', { class: 'cols' },
       h('div', { class: 'wide', style: 'display:flex;flex-direction:column;gap:16px' },
@@ -582,7 +634,9 @@ async function renderPersona() {
 }
 
 function sketchThumb(id) {
+  if (thumbCache.has('s:' + id)) return thumbCache.get('s:' + id);
   const box = h('div', { class: 'thumb' });
+  thumbCache.set('s:' + id, box);
   const f = h('iframe', { src: '/sketch/' + encodeURIComponent(id), sandbox: 'allow-scripts', loading: 'lazy', tabindex: '-1', title: 'sketch ' + id, 'aria-hidden': 'true' });
   box.append(f);
   new ResizeObserver(() => { f.style.transform = 'scale(' + (box.clientWidth / 1440) + ')'; }).observe(box);
@@ -594,7 +648,7 @@ async function renderExplore() {
   const main = $('main');
   const liked = Object.keys(data.picks.liked);
   const pickIt = async (id, value) => { try { await api('/api/sketches/' + id + '/pick', { value }); refresh(); } catch (e) { toast(e.message); } };
-  const newRound = async (agent) => { try { const r = await api('/api/sketches', agent ? { count: 12, agent: true } : { count: 12 }); toast(agent ? 'Ready for your agent: it will invent 12 sketches' : 'Round ' + r.round + ': ' + r.specs.length + ' new sketches'); refresh(); } catch (e) { toast(e.message); } };
+  const newRound = async (agent) => { try { const r = await api('/api/sketches', agent ? { count: 12, agent: true } : { count: 12 }); toast(agent ? 'Your AI agent will invent 12 looks' : r.specs.length + ' new looks'); refresh(); } catch (e) { toast(e.message); } };
   fill(main, 
     h('header', { class: 'row between' },
       h('div', null, h('h1', null, 'Which of these feel like you?'),
@@ -603,6 +657,7 @@ async function renderExplore() {
         data.taste.likes.length || data.taste.dislikes.length
           ? [h('span', null, 'Leaning ', h('b', null, data.taste.likes.join(', ') || '…')), data.taste.dislikes.length ? h('span', { class: 'sub', style: 'margin:0' }, 'Less ' + data.taste.dislikes.join(', ')) : null]
           : h('span', { class: 'sub', style: 'margin:0' }, 'Like or skip a few sketches and folio learns.'))),
+    waitingBanner(),
     state.progress && !state.progress.persona ? h('div', { class: 'nextbar' }, h('span', null, 'Looks fit much better once we know you. Finish step 1 first?'), h('a', { class: 'btn', href: '/studio?view=persona' }, 'How we read you →')) : null,
     h('div', { class: 'row' },
       h('button', { class: 'btn pri', type: 'button', onclick: () => newRound(false) }, data.rounds.length ? 'Show me 12 more' : 'Show me 12 looks'),
@@ -705,6 +760,20 @@ function kitBox(kit) {
     kit.chrome ? h('button', { class: 'btn' + (kit.files.length ? '' : ' pri'), type: 'button', disabled: kit.making, onclick: (e) => make(e.currentTarget) }, kit.files.length ? 'Remake kit' : 'Make my kit')
       : h('p', { class: 'sub', style: 'margin:0' }, 'Needs Chrome or Chromium installed.'));
 }
+// The design preview. Desktop renders at a real 1440px width (the layout visitors get) scaled to fit;
+// a narrower live iframe would show the tablet layout instead and make designs look broken.
+function previewFrame(src, device, id) {
+  const iframe = h('iframe', { src, sandbox: 'allow-scripts', title: id + ' preview' });
+  const win = h('div', { class: 'win' }, iframe);
+  const frame = h('div', { class: 'frame' + (device === 'phone' ? ' phone' : '') }, win);
+  if (device !== 'phone') {
+    const H = 900;
+    iframe.style.cssText = 'width:1440px;height:' + H + 'px;transform-origin:0 0';
+    const fit = () => { const k = win.clientWidth / 1440; iframe.style.transform = 'scale(' + k + ')'; win.style.height = Math.round(H * k) + 'px'; };
+    new ResizeObserver(fit).observe(win);
+  }
+  return frame;
+}
 function thumbBox(id) { const t = thumb(id); t.style.width = '220px'; t.style.borderRadius = '10px'; t.style.border = '1px solid var(--line)'; return t; }
 
 // ---- Content: folio.json as a form --------------------------------------------------------------
@@ -738,6 +807,7 @@ async function renderContent() {
   const status = h('span', { class: 'mono', role: 'status' });
   fill(main,
     youTabs('content'),
+    waitingBanner(),
     h('header', null, h('h1', null, 'Your content'), h('p', { class: 'sub' }, 'Everything your site says about you. Changing designs never changes this.')),
     h('div', { class: 'cols' },
       h('section', { class: 'box', 'aria-label': 'Import from GitHub' }, h('b', null, 'Import from GitHub'), h('p', { class: 'sub', style: 'margin:0' }, 'Adds your name, photo, bio and best repos. Never overwrites what you wrote.'),
@@ -773,10 +843,11 @@ async function renderContent() {
     h('div', { class: 'savebar' }, h('b', null, state.dirty ? 'Unsaved changes' : 'All saved'),
       h('div', { class: 'row' },
         h('button', { class: 'btn', type: 'button', onclick: () => { state.draft = null; state.dirty = false; renderContent(); } }, 'Discard'),
-        h('button', { class: 'btn lime', type: 'button', onclick: async () => { try { const r = await api('/api/content', { content: draft }); state.contentData = null; state.draft = null; state.dirty = false; toast('Saved as v' + r.version); renderContent(); } catch (e) { toast(e.message); } } }, 'Save'))));
+        h('button', { class: 'btn lime', type: 'button', onclick: async () => { try { const r = await api('/api/content', { content: draft }); state.contentData = null; state.draft = null; state.dirty = false; toast(r.unchanged ? 'No changes to save' : 'Saved'); renderContent(); } catch (e) { toast(e.message); } } }, 'Save'))));
 }
 
 async function refresh(background) {
+  if (!background) state.sig = undefined;
   // A background update never redraws under an open menu, dialog or unsaved form: it waits for the next tick.
   const busy = dlg.open || document.querySelector('details.menu[open]');
   if (!(background && busy)) {
@@ -794,6 +865,12 @@ async function refresh(background) {
         if (to) { location.replace('/studio?view=' + to); return; }
       }
       paintActivity();
+      // Background ticks redraw the page only when what it shows has changed.
+      if (background) {
+        const sig = await viewSignature();
+        if (sig === state.sig) return schedule();
+        state.sig = sig;
+      }
       if (view === 'content') { if (!state.dirty) { state.contentData = null; state.draft = null; await renderContent(); } else if (!$('main').childElementCount) await renderContent(); }
       else if (view === 'persona') await renderPersona();
       else if (view === 'explore') await renderExplore();
@@ -801,11 +878,25 @@ async function refresh(background) {
       else if (view === 'publish') await renderPublish();
       else if (params.get('d')) await renderDesign(params.get('d'));
       else renderLibrary(await api('/api/library'));
+      if (!background) state.sig = await viewSignature().catch(() => undefined);
     } catch (e) { fill($('main'), h('div', { class: 'empty' }, 'Could not load: ' + e.message)); }
   }
-  // Claims don't touch watched files, so poll gently while something is being made.
+  schedule();
+}
+// Claims don't touch watched files, so poll gently while something is being made.
+function schedule() {
   clearTimeout(refresh.t);
   if (state.jobs.some((j) => j.status === 'active') || state.runner?.running) refresh.t = setTimeout(() => refresh(true), state.runner?.running ? 2500 : 5000);
+}
+// A cheap fingerprint of what the current view shows.
+async function viewSignature() {
+  const items = JSON.stringify(state.itemState);
+  if (view === 'library' || view === 'compare') { const l = await api('/api/library'); return items + JSON.stringify(l.designs.map((d) => [d.id, d.pending, d.latest, d.favorite, d.archived, d.current, d.missing])) + l.current + l.publishes.length; }
+  if (view === 'design') { const d = await api('/api/designs/' + encodeURIComponent(params.get('d'))).catch(() => ({})); return items + JSON.stringify((d.versions || []).map((v) => v.n)) + d.favorite + d.archived; }
+  if (view === 'explore') { const x = await api('/api/sketches'); return JSON.stringify(x.rounds.map((r) => r.round)) + JSON.stringify(x.picks); }
+  if (view === 'persona') { const x = await api('/api/persona'); return JSON.stringify(x.persona && [x.persona.n, x.persona.corrections?.length]); }
+  if (view === 'content') return state.dirty ? 'dirty' : String(state.sig); // content redraws only on explicit saves
+  return 'static';
 }
 refresh();
 // Designs landing from agents refresh the view in place (no full reload, so filters and selection stay).
