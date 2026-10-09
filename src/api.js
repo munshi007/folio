@@ -5,6 +5,10 @@
 //   GET  /api/designs/:id                  one design: record, versions (newest first), children
 //   POST /api/designs/:id/restore {n}      restore version n (adds a new version)
 //   POST /api/designs/:id/flag {flag,value} favorite | archived
+//   POST /api/designs/:id/delete           delete a design and its history (permanent)
+//   POST /api/designs/:id/delete-version {n}  delete one old version (permanent)
+//   GET  /api/cleanup                      how many designs each clean-up would remove
+//   POST /api/cleanup {what, run?}         archived | drafts | keep-favorites | round (permanent)
 //   POST /api/site/theme {id}              make a design the site's design (as designed: look overrides dropped)
 //   GET  /api/jobs                         generation jobs with live progress
 //   POST /api/jobs {count, like?, keep?}   start a generation (or "more like this") job
@@ -28,7 +32,9 @@ import { renderSketch } from './sketch.js';
 import { designTraits } from './traits.js';
 import { publishCheck, publish } from './publish.js';
 import { readContent, writeContent, restoreContent, importGitHub, saveUpload, contentVersions, MAX_UPLOAD } from './content.js';
-import { createContentJob } from './jobs.js';
+import { createContentJob, busyThemes, forgetThemes } from './jobs.js';
+import { deleteDesigns, deleteVersion, cleanupPlan } from './library.js';
+import { deleteSketchRound } from './explore.js';
 import { KEEPS } from './generate.js';
 import { fileURLToPath } from 'node:url';
 import { join } from 'node:path';
@@ -163,6 +169,11 @@ export async function handleApi(req, res, url, ctx) {
     }
 
     // ---- sketches ----
+    const sr = path.match(/^\/api\/sketches\/round\/(\d{1,4})\/delete$/);
+    if (sr) {
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      return send(res, 200, await deleteSketchRound(store, Number(sr[1]))), true;
+    }
     if (path === '/api/sketches') {
       if (req.method === 'GET') {
         const [rounds, picks, taste] = await Promise.all([listRounds(store), readPicks(store), tasteFrom(store)]);
@@ -220,7 +231,40 @@ export async function handleApi(req, res, url, ctx) {
       return send(res, 200, designTraits(html)), true;
     }
 
-    const m = path.match(/^\/api\/designs\/([^/]+)(\/(restore|flag))?$/);
+    // ---- where the person is in the flow (sidebar steps) ----
+    if (path === '/api/progress' && req.method === 'GET') {
+      const raw = await loadConfig(configPath);
+      const lib = await getLibrary(store, { current: raw.theme ?? null });
+      const picks = await readPicks(store);
+      return send(res, 200, {
+        content: !validate(raw).errors.length && Boolean(raw.name) && raw.name !== 'Your Name',
+        persona: Boolean(await store.data.readJSON('persona.json', null)),
+        liked: Object.keys(picks.liked).length,
+        designs: lib.designs.filter((d) => !d.pending && !d.missing).length,
+        chosen: lib.designs.some((d) => d.current),
+        published: lib.publishes.length > 0,
+      }), true;
+    }
+
+    // ---- deleting (permanent; Studio always confirms first) ----
+    if (path === '/api/cleanup') {
+      const current = (await loadConfig(configPath)).theme ?? null;
+      const plan = await cleanupPlan(store, { current, busy: await busyThemes(store, base) });
+      if (req.method === 'GET') {
+        const lib = await getLibrary(store, { current });
+        const rounds = Object.fromEntries(lib.runs.map((r) => [r.run, plan.round(r.run).length]));
+        return send(res, 200, { archived: plan.archived.length, drafts: plan.drafts.length, keepFavorites: plan.keepFavorites.length, rounds }), true;
+      }
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      const body = await readJSONBody(req);
+      const ids = body.what === 'archived' ? plan.archived : body.what === 'drafts' ? plan.drafts : body.what === 'keep-favorites' ? plan.keepFavorites : body.what === 'round' && Number.isInteger(body.run) ? plan.round(body.run) : null;
+      if (!ids) return send(res, 400, { error: 'what must be archived, drafts, keep-favorites or round' }), true;
+      const gone = await deleteDesigns(store, ids, { current });
+      await forgetThemes(store, gone);
+      return send(res, 200, { deleted: gone.length }), true;
+    }
+
+    const m = path.match(/^\/api\/designs\/([^/]+)(\/(restore|flag|delete|delete-version))?$/);
     if (m) {
       const id = decodeURIComponent(m[1]);
       if (!validId(id)) return send(res, 400, { error: 'bad design id' }), true;
@@ -239,6 +283,16 @@ export async function handleApi(req, res, url, ctx) {
       if (m[3] === 'flag') {
         const rec = await setFlag(store, id, body.flag, body.value);
         return send(res, 200, { ok: true, design: rec }), true;
+      }
+      if (m[3] === 'delete') {
+        if ((await busyThemes(store, base)).has(id)) return send(res, 409, { error: 'An agent is designing this one right now. Cancel its round first, or wait.' }), true;
+        const gone = await deleteDesigns(store, [id], { current: (await loadConfig(configPath)).theme ?? null });
+        if (!gone.length) return send(res, 404, { error: 'no such design' }), true;
+        await forgetThemes(store, gone);
+        return send(res, 200, { deleted: id }), true;
+      }
+      if (m[3] === 'delete-version') {
+        return send(res, 200, { versions: await deleteVersion(store, id, Number(body.n)) }), true;
       }
     }
 

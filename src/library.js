@@ -1,5 +1,6 @@
-// The Library: every design a person has, every version of it, and where it came from. Nothing is deleted:
-// archive hides, restore brings back, and restoring an old version adds a new version on top.
+// The Library: every design a person has, every version of it, and where it came from. Archive hides and
+// restore brings back; deleting is the person's explicit choice (designs, versions, whole rounds, clean-ups)
+// and is permanent. Restoring an old version adds a new version on top.
 //
 // Records live in the store's data namespace:
 //   library.json            { v, designs: { id: record }, publishes: [...] }
@@ -13,6 +14,7 @@ const EMPTY = () => ({ v: 1, designs: {}, publishes: [] });
 const ID_RE = /^[a-z0-9][a-z0-9-]{0,79}$/;
 const hash = (text) => createHash('sha1').update(text).digest('hex').slice(0, 16);
 const now = () => new Date().toISOString();
+const MERGE_MS = 15 * 60 * 1000;
 
 export function validId(id) {
   return typeof id === 'string' && ID_RE.test(id);
@@ -45,6 +47,15 @@ async function addVersion(store, id, source, note) {
   versions.push({ n, at: now(), hash: hash(source), note });
   await store.data.writeJSON(`versions/${id}.json`, versions);
   return n;
+}
+
+async function replaceVersion(store, id, source) {
+  const versions = await readVersions(store, id);
+  const last = versions[versions.length - 1];
+  await store.data.writeText(`versions/${id}/${last.n}.js`, source);
+  Object.assign(last, { at: now(), hash: hash(source) });
+  await store.data.writeJSON(`versions/${id}.json`, versions);
+  return last.n;
 }
 
 // Generation runs say where a design came from: which round, which brief, which parent.
@@ -105,7 +116,11 @@ export async function syncLibrary(store) {
     const versions = await readVersions(store, id);
     const last = versions[versions.length - 1];
     if (!last || last.hash !== hash(source)) {
-      await addVersion(store, id, source, last ? 'edited outside Studio' : 'created');
+      // A designer saving every few minutes isn't making versions anyone wants to scroll through: an edit
+      // shortly after an unpublished outside edit replaces it instead of stacking up.
+      const quick = last && (last.note === 'created' || last.note === 'edited outside Studio') && Date.now() - new Date(last.at).getTime() < MERGE_MS && !lib.publishes.some((p) => p.design === id && p.version === last.n);
+      if (quick) await replaceVersion(store, id, source);
+      else await addVersion(store, id, source, last ? 'edited outside Studio' : 'created');
     }
   }
   // A theme file that disappeared keeps its record and history; it can be restored.
@@ -194,4 +209,54 @@ export async function recordPublish(store, { design, host, url }) {
   const versions = await readVersions(store, design);
   lib.publishes.push({ at: now(), design, version: versions[versions.length - 1]?.n ?? null, host, url: url ?? null });
   await writeLibrary(store, lib);
+}
+
+// ---- Deleting (permanent, always the person's explicit choice) --------------------------------------
+
+async function removeDesignFiles(store, id) {
+  await store.themes.remove(`${id}.js`);
+  await store.data.remove(`versions/${id}`, { recursive: true });
+  await store.data.remove(`versions/${id}.json`);
+}
+
+// Delete designs and everything about them. The live site's design can't be deleted (switch first).
+export async function deleteDesigns(store, ids, { current = null } = {}) {
+  const { lib } = await syncLibrary(store);
+  const gone = [];
+  for (const id of ids) {
+    if (!validId(id) || !lib.designs[id]) continue;
+    if (id === current) throw new Error(`"${id}" is your site right now. Make another design your site first.`);
+    await removeDesignFiles(store, id);
+    delete lib.designs[id];
+    gone.push(id);
+  }
+  // Variations of a deleted design keep working; they just lose the family link.
+  for (const d of Object.values(lib.designs)) if (gone.includes(d.parent)) d.parent = null;
+  await writeLibrary(store, lib);
+  return gone;
+}
+
+export async function deleteVersion(store, id, n) {
+  const versions = await readVersions(store, id);
+  const i = versions.findIndex((v) => v.n === n);
+  if (i < 0) throw new Error(`no version ${n} of ${id}`);
+  if (i === versions.length - 1) throw new Error('That is the current version. Restore another one first, then delete this.');
+  versions.splice(i, 1);
+  await store.data.remove(`versions/${id}/${n}.js`);
+  await store.data.writeJSON(`versions/${id}.json`, versions);
+  return versions.slice().reverse();
+}
+
+// What each clean-up would remove, so the confirm dialog can say exactly that.
+export async function cleanupPlan(store, { current = null, busy = new Set() } = {}) {
+  const { lib } = await syncLibrary(store);
+  const designs = Object.values(lib.designs).filter((d) => d.id !== current);
+  const pending = new Set();
+  for (const d of designs) if (isPendingSource((await store.themes.readText(`${d.id}.js`)) ?? '')) pending.add(d.id);
+  return {
+    archived: designs.filter((d) => d.archived).map((d) => d.id),
+    drafts: designs.filter((d) => pending.has(d.id) && !busy.has(d.id)).map((d) => d.id),
+    keepFavorites: designs.filter((d) => !d.favorite && !busy.has(d.id)).map((d) => d.id),
+    round: (run) => designs.filter((d) => d.run === run && !d.favorite && !busy.has(d.id)).map((d) => d.id),
+  };
 }

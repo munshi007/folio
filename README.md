@@ -17,7 +17,7 @@ npx folio-site studio
 
 <img src="docs/studio/library.jpg" width="92%" alt="Folio Studio: the Library with six generated designs of the same profile">
 
-<sub>Folio Studio, local in your browser. Every design from every round, nothing ever deleted. (Fictional demo profile.)</sub>
+<sub>Folio Studio, local in your browser: four steps from your resume to a live site. Keep what you like, delete the rest. (Fictional demo profile.)</sub>
 
 </div>
 
@@ -55,7 +55,7 @@ Each liked sketch becomes a complete site, checked before it counts (escaping, u
 
 <img src="docs/studio/compare.jpg" width="100%" alt="Compare and mix: three designs side by side with their real fonts and colors">
 
-**More like this** keeps what you like (vibe, colors, type, layout or signature moment) and gets three siblings that change two big things each. Every edit is a version; restore any of them.
+**More like this** keeps what you like (vibe, colors, type, layout or signature moment) and gets three siblings that change two big things each. Every edit is a version you can restore, and **Clean up** removes what you don't need: archived designs, unfinished drafts, old rounds or old versions.
 
 ### 4. Publish, and take it everywhere
 A pre-flight checklist (it flags a phone number or street address before it goes public), then GitHub Pages in one click, or plain files for any host. The **identity kit** carries your design onto a link preview, LinkedIn and X banners, an announcement post and a one-page résumé PDF.

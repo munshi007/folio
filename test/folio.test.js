@@ -384,7 +384,14 @@ test('store refuses keys that escape its folders', async () => {
   assert.deepEqual(await s.data.readJSON('a/b.json'), { ok: 1 });
 });
 
-test('library versions every change, restores without losing history, never deletes', async () => {
+// Quick successive outside edits merge into one version; age the saved ones to test separate versions.
+function ageVersions(dir, id) {
+  const f = join(dir, '.folio', 'versions', `${id}.json`);
+  const v = JSON.parse(readFileSync(f, 'utf8')).map((x) => ({ ...x, at: new Date(Date.now() - 3600_000).toISOString() }));
+  writeFileSync(f, JSON.stringify(v));
+}
+
+test('library versions every change, restores without losing history', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'folio-lib-'));
   writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
   mkdirSync(join(dir, 'themes'));
@@ -392,7 +399,8 @@ test('library versions every change, restores without losing history, never dele
   const store = openStore(dir);
   writeFileSync(join(dir, 'themes', 'mine.js'), src(1));
   await syncLibrary(store);
-  writeFileSync(join(dir, 'themes', 'mine.js'), src(2)); // an agent edits the file directly
+  ageVersions(dir, 'mine');
+  writeFileSync(join(dir, 'themes', 'mine.js'), src(2)); // an agent edits the file directly, later
   let d = await getDesign(store, 'mine');
   assert.deepEqual(d.versions.map((v) => [v.n, v.note]), [[2, 'edited outside Studio'], [1, 'created']]);
   const n = await restoreVersion(store, 'mine', 1);
@@ -427,6 +435,7 @@ test('studio API: reads, guarded writes, version preview, host check', async () 
     assert.equal(lib.designs[0].id, 'mine');
     assert.equal(lib.current, 'bento');
     assert.ok(lib.builtins.some((b) => b.id === 'blueprint'));
+    ageVersions(dir, 'mine');
     writeFileSync(join(dir, 'themes', 'mine.js'), `export const meta = { name: 'mine', description: 'second' };\nexport function render(p, h) { return { css: '', body: '<h1>SECOND</h1>' }; }\n`);
     const d = await (await fetch(base + '/api/designs/mine')).json();
     assert.equal(d.versions.length, 2);
@@ -912,4 +921,77 @@ export function render(p, h) {
   const panels = r.files.filter((f) => /-panel\d+\.png$/.test(f.file));
   assert.equal(panels.length, 4);
   assert.notDeepEqual(readFileSync(panels[0].file), readFileSync(panels[3].file), 'panels are different screens');
+});
+
+// ---- deleting and cleaning up ----------------------------------------------------------------------
+test('delete: designs, versions, rounds and clean-ups are permanent, confirmed by the API rules', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-del-'));
+  const cfg = join(dir, 'folio.json');
+  writeFileSync(cfg, JSON.stringify(example));
+  const store = openStore(dir);
+  const job = await createJob(store, dir, normalize(example), { count: 3, cli: 'folio', seed: 3 });
+  const [a, b, c] = job.items.map((i) => i.theme);
+  const design = (name, desc) => writeFileSync(join(dir, 'themes', `${name}.js`), readFileSync(join(dir, 'themes', `${name}.js`), 'utf8').replace(/description: 'PENDING:[^']*'/, `description: '${desc}'`));
+  design(a, 'one');
+  design(b, 'two');
+  const srv = await serve({ config: cfg, port: 0 });
+  const u = `http://127.0.0.1:${srv.port}`;
+  const post = (path, body = {}) => fetch(u + path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1' }, body: JSON.stringify(body) });
+  try {
+    await (await fetch(u + '/api/library')).json(); // sync: a and b get v1
+    // A quick second edit merges into v1 instead of stacking a new version.
+    design(a, 'one-again');
+    writeFileSync(join(dir, 'themes', `${a}.js`), readFileSync(join(dir, 'themes', `${a}.js`), 'utf8') + '\n// tweak\n');
+    let d = await (await fetch(u + `/api/designs/${a}`)).json();
+    assert.equal(d.versions.length, 1, 'quick edits merge');
+
+    // Your site can't be deleted; anything else can, and it leaves its job.
+    writeFileSync(cfg, JSON.stringify({ ...example, theme: b }));
+    assert.equal((await post(`/api/designs/${b}/delete`)).status, 400);
+    assert.equal((await post(`/api/designs/${a}/delete`)).status, 200);
+    assert.ok(!existsSync(join(dir, 'themes', `${a}.js`)));
+    assert.ok(!existsSync(join(dir, '.folio', 'versions', `${a}.json`)));
+    const j = (await (await fetch(u + '/api/jobs')).json()).find((x) => x.id === job.id);
+    assert.ok(!j.items.some((i) => i.theme === a), 'deleted design left its job');
+
+    // Clean-up counts, then removing unfinished drafts (c was never designed).
+    const plan = await (await fetch(u + '/api/cleanup')).json();
+    assert.equal(plan.drafts, 1);
+    assert.equal((await (await post('/api/cleanup', { what: 'drafts' })).json()).deleted, 1);
+    assert.ok(!existsSync(join(dir, 'themes', `${c}.js`)));
+    assert.equal((await post('/api/cleanup', { what: 'everything' })).status, 400);
+    // b is the site: a round delete keeps it.
+    assert.equal((await (await post('/api/cleanup', { what: 'round', run: job.run })).json()).deleted, 0);
+    assert.ok(existsSync(join(dir, 'themes', `${b}.js`)));
+
+    // Old versions can go; the latest can't.
+    design(b, 'two-b');
+    const recs = JSON.parse(readFileSync(join(dir, '.folio', 'versions', `${b}.json`), 'utf8'));
+    recs[0].at = new Date(Date.now() - 3600_000).toISOString(); // older than the merge window
+    writeFileSync(join(dir, '.folio', 'versions', `${b}.json`), JSON.stringify(recs));
+    writeFileSync(join(dir, 'themes', `${b}.js`), readFileSync(join(dir, 'themes', `${b}.js`), 'utf8') + '\n// later\n');
+    d = await (await fetch(u + `/api/designs/${b}`)).json();
+    assert.equal(d.versions.length, 2);
+    assert.equal((await post(`/api/designs/${b}/delete-version`, { n: d.versions[0].n })).status, 400, 'latest stays');
+    assert.equal((await post(`/api/designs/${b}/delete-version`, { n: d.versions[1].n })).status, 200);
+    assert.equal((await (await fetch(u + `/api/designs/${b}`)).json()).versions.length, 1);
+  } finally {
+    srv.close();
+  }
+});
+
+test('sketch rounds can be deleted with their likes; wildcards respect the avoid list', async () => {
+  const { autoRound, deleteSketchRound, readPicks, pick: pickSketch } = await import('../src/explore.js');
+  const { autoSpecs } = await import('../src/sketch.js');
+  const store = openStore(mkdtempSync(join(tmpdir(), 'folio-skdel-')));
+  const r = await autoRound(store, { persona: null, count: 6, seed: 1 });
+  await pickSketch(store, r.specs[0].id, 'like');
+  assert.equal((await deleteSketchRound(store, r.round)).removed, 6);
+  assert.deepEqual((await readPicks(store)).liked, {});
+  const persona = { answers: { taste: ['Light & airy'] }, avoid: ['all-dark monochrome', 'fake terminals'], dials: {} };
+  for (let seed = 1; seed < 10; seed++) {
+    const specs = autoSpecs({ persona, count: 12, seed });
+    assert.ok(specs.every((sp) => !sp.tags.includes('dark') && sp.layout !== 'terminal'), `seed ${seed}`);
+    assert.equal(new Set(specs.map((sp) => sp.title)).size, specs.length, 'unique titles');
+  }
 });

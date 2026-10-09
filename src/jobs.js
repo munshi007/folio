@@ -218,3 +218,27 @@ async function cancelJobUnlocked(store, base, id) {
   for (const it of job.items) if (it.theme && (it.state === 'waiting' || it.state === 'working')) await setFlag(store, it.theme, 'archived', true).catch(() => {});
   return job;
 }
+
+// Designs an agent is working on right now: never deleted underneath it.
+export async function busyThemes(store, base) {
+  const busy = new Set();
+  for (const j of await listJobs(store, base)) for (const it of j.items) if (it.theme && it.state === 'working') busy.add(it.theme);
+  return busy;
+}
+
+// Deleted designs leave their jobs, so no agent claims (and quietly re-creates) them. A job left with
+// nothing to do is removed.
+export async function forgetThemes(store, themes) {
+  const gone = new Set(themes);
+  return store.data.withLock('jobs', async () => {
+    for (const f of await store.data.list('jobs')) {
+      if (!/^j[0-9a-f]{10}\.json$/.test(f)) continue;
+      const job = await store.data.readJSON(`jobs/${f}`, null);
+      if (!job) continue;
+      const items = job.items.filter((it) => !gone.has(it.theme));
+      if (items.length === job.items.length) continue;
+      if (!items.length) await store.data.remove(`jobs/${f}`);
+      else await writeJob(store, { ...job, items });
+    }
+  });
+}

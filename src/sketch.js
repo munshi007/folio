@@ -288,6 +288,14 @@ export function autoSpecs({ persona, taste = {}, count = 12, seed = Date.now(), 
     for (let i = 0; i < items.length; i++) if ((r -= ws[i]) <= 0) return items[i];
     return items[items.length - 1];
   };
+  // Wildcards explore, but never into what the person ruled out: a strongly disliked mood ("avoid all-dark")
+  // or a layout they named ("no fake terminals") is off the table for every sketch.
+  const vetoed = (tags) => tags.some((t) => (prefs[t] || 0) <= -4);
+  const avoidText = (persona?.avoid || []).join(' ').toLowerCase();
+  const layoutsOk = LAYOUTS.filter((l) => !vetoed(LAYOUT_TAGS[l]) && !(l === 'terminal' && /terminal|console|hacker|matrix/.test(avoidText)));
+  const palettesOk = PALETTES.filter((p) => !vetoed(p.tags));
+  const LAYOUT_POOL = layoutsOk.length >= 3 ? layoutsOk : LAYOUTS;
+  const PALETTE_POOL = palettesOk.length >= 4 ? palettesOk : PALETTES;
   const used = { layout: new Set(), palette: new Set(), font: new Set() };
   const out = [];
   const wildEvery = 4; // every 4th sketch ignores taste entirely, so exploration never stops
@@ -295,10 +303,10 @@ export function autoSpecs({ persona, taste = {}, count = 12, seed = Date.now(), 
     const wild = (i + 1) % wildEvery === 0;
     const temp = wild ? 1e6 : 2.2;
     // Every layout appears once before any repeats: range is the point of a round.
-    const layout = pick(LAYOUTS.filter((l) => !used.layout.has(l)), (l) => LAYOUT_TAGS[l], temp, new Set());
+    const layout = pick(LAYOUT_POOL.filter((l) => !used.layout.has(l)), (l) => LAYOUT_TAGS[l], temp, new Set());
     const fontsPool = layout === 'terminal' ? FONT_PAIRS.filter((f) => f.tags.includes('mono')) : FONT_PAIRS.filter((f) => !f.tags.includes('mono') || rand() < 0.3);
     const font = pick(fontsPool, (f) => f.tags, temp, used.font);
-    const pal = pick(PALETTES, (p) => p.tags, temp, used.palette);
+    const pal = pick(PALETTE_POOL, (p) => p.tags, temp, used.palette);
     const motifs = layout === 'poster' ? ['shapes'] : layout === 'bento' || layout === 'split' ? ['none', 'grid', 'dots'] : MOTIFS.filter((m) => m !== 'shapes');
     const motif = pick(motifs, (m) => MOTIF_TAGS[m], temp, new Set());
     const [bg, ink, accent, accent2, muted] = pal.c;
@@ -315,11 +323,12 @@ export function autoSpecs({ persona, taste = {}, count = 12, seed = Date.now(), 
     };
     const fp = fingerprint(normalizeSpec(spec));
     if (seen.has(fp)) continue; // never show the exact same sketch twice, in this round or any earlier one
+    if (out.some((o) => o.title === spec.title)) continue; // two "Snow Graphite split"s in one round read as a bug
     seen.add(fp);
     used.layout.add(layout);
     used.palette.add(pal.id);
     used.font.add(font.id);
-    if (used.layout.size === LAYOUTS.length) used.layout.clear();
+    if (used.layout.size === LAYOUT_POOL.length) used.layout.clear();
     out.push(spec);
     i++;
   }

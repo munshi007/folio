@@ -131,9 +131,61 @@ aside.panel{flex:1 1 340px;min-width:0;max-width:440px;background:var(--card);bo
 .kit a{display:flex;flex-direction:column;gap:6px;text-decoration:none;color:var(--ink);font-size:13.5px}
 .kit img{width:100%;height:auto;max-height:260px;object-fit:contain;object-position:left top;border-radius:10px;border:1px solid var(--line);background:var(--card)}
 .kit .pdf{aspect-ratio:16/10;display:grid;place-items:center;border-radius:10px;border:1px solid var(--line);background:var(--card);font-weight:600}
+.steps{display:flex;flex-direction:column;gap:2px}
+.steps a{display:grid;grid-template-columns:26px minmax(0,1fr);gap:10px;align-items:center;padding:9px 10px;border-radius:10px;color:var(--ink);text-decoration:none}
+.steps a i{width:24px;height:24px;border-radius:50%;border:1.5px solid var(--line2);display:grid;place-items:center;font:600 12px "Geist Mono",monospace;font-style:normal;color:var(--mute)}
+.steps a.done i{background:var(--ok);border-color:var(--ok);color:#fff}
+.steps a[aria-current]{background:var(--ink);color:var(--bg)}.steps a[aria-current] i{border-color:var(--bg);color:var(--bg)}
+.steps a[aria-current].done i{border-color:var(--ok)}
+.steps a:hover:not([aria-current]){background:var(--line)}
+.steps small{display:block;font-size:12px;color:var(--mute)}.steps a[aria-current] small{color:inherit;opacity:.7}
+.sidefoot{margin-top:auto;display:flex;flex-direction:column;gap:4px}
+.sidefoot a,.sidefoot button{all:unset;cursor:pointer;padding:7px 10px;border-radius:9px;font-size:14px;color:var(--mute)}
+.sidefoot a:hover,.sidefoot button:hover{background:var(--line);color:var(--ink)}
+.activity{border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:13.5px}
+.activity summary{cursor:pointer;padding:10px 12px;list-style:none;display:flex;gap:8px;align-items:center}
+.activity summary::-webkit-details-marker{display:none}
+.activity .dot{width:8px;height:8px;border-radius:50%;background:var(--acc);animation:pulse 1.2s infinite;flex:none}
+.activity .inner{padding:0 12px 12px;display:flex;flex-direction:column;gap:10px}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line)}
+.tabs a{padding:10px 14px;color:var(--mute);text-decoration:none;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs a[aria-current]{color:var(--ink);border-color:var(--ink);font-weight:500}
+.nextbar{display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;padding:16px 18px;border:1px solid var(--line);border-radius:16px;background:var(--card)}
+.card .thumb{cursor:pointer}
+.card .waiting{display:grid;place-items:center;aspect-ratio:16/10;background:repeating-linear-gradient(-45deg,var(--bg) 0 12px,var(--card) 12px 24px);color:var(--mute);font-size:14px;border-bottom:1px solid var(--line)}
+.desc.clamp{display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.iconbtn{all:unset;cursor:pointer;width:36px;height:36px;border-radius:10px;display:grid;place-items:center;border:1px solid var(--line2);font-size:16px}
+.iconbtn:hover{border-color:var(--ink)}
+.iconbtn[aria-pressed=true]{color:#c98a00;border-color:#c98a00}
+.menu{position:relative}
+.menu>summary{list-style:none}.menu>summary::-webkit-details-marker{display:none}
+.menu .pop{position:absolute;right:0;bottom:44px;z-index:20;min-width:200px;background:var(--card);border:1px solid var(--line2);border-radius:12px;box-shadow:0 12px 30px rgba(0,0,0,.14);padding:6px;display:flex;flex-direction:column}
+.menu .pop button,.menu .pop a{all:unset;cursor:pointer;padding:9px 10px;border-radius:8px;font-size:14px}
+.menu .pop button:hover,.menu .pop a:hover{background:var(--bg)}
+.menu .pop .danger{color:#c4321a}
+.menu .pop [disabled]{opacity:.4;cursor:not-allowed}
+details.round{border-top:1px solid var(--line);padding-top:14px}
+details.round>summary{cursor:pointer;list-style:none;display:flex;flex-wrap:wrap;gap:10px;align-items:baseline;justify-content:space-between}
+details.round>summary::-webkit-details-marker{display:none}
+details.round>summary h2::before{content:"▸ ";font-size:18px;color:var(--mute)}
+details.round[open]>summary h2::before{content:"▾ "}
+details.round[open]>summary{margin-bottom:14px}
+.linkbtn{all:unset;cursor:pointer;color:var(--mute);font-size:13.5px;text-decoration:underline;text-underline-offset:3px}
+.linkbtn.danger{color:#c4321a}
+dialog{border:0;border-radius:18px;padding:0;max-width:min(460px,calc(100vw - 32px));background:var(--card);color:var(--ink);box-shadow:0 30px 80px rgba(0,0,0,.3)}
+dialog::backdrop{background:rgba(10,10,12,.45)}
+dialog .dbody{padding:22px 22px 18px;display:flex;flex-direction:column;gap:12px}
+dialog h3{margin:0;font-size:19px}
+dialog p{margin:0;color:var(--mute)}
+dialog .row{justify-content:flex-end}
+.btn.danger{background:#c4321a;border-color:#c4321a;color:#fff;font-weight:500}
+.cleanopt{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;padding:12px 0;border-top:1px solid var(--line)}
+.cleanopt small{display:block;color:var(--mute)}
 .toast{position:fixed;left:0;right:0;margin:0 auto;width:max-content;max-width:calc(100vw - 32px);bottom:24px;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:500;opacity:0;transform:translateY(16px);transition:all .25s;pointer-events:none}
 .toast.on{opacity:1;transform:none}
-@media (max-width:760px){main{padding:24px 16px 60px}nav.side{max-width:none;border-right:0;border-bottom:1px solid var(--line)}}
+@media (max-width:760px){main{padding:24px 16px 60px}nav.side{max-width:none;border-right:0;border-bottom:1px solid var(--line);padding:14px 12px;gap:12px}
+  .steps{flex-direction:row}.steps a{flex:1;grid-template-columns:1fr;justify-items:center;text-align:center;gap:4px;padding:8px 4px;font-size:13px}.steps small{display:none}
+  .sidefoot{flex-direction:row;justify-content:space-between;margin-top:0}}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}.job .bar i.working{animation:none}}
 `;
 
@@ -174,12 +226,15 @@ function thumb(id, v) {
   new ResizeObserver(fit).observe(box);
   return box;
 }
+const NOTE = { 'created': 'First version', 'edited outside Studio': 'Updated by your agent' };
 const titleOf = (d) => d.label || (d.direction ? d.direction.replace(/-/g, ' ').replace(/^./, (c) => c.toUpperCase()) : d.id);
 const ago = (iso) => { const s = (Date.now() - new Date(iso)) / 1000; return s < 60 ? 'just now' : s < 3600 ? Math.round(s / 60) + ' min ago' : s < 86400 ? Math.round(s / 3600) + ' h ago' : Math.round(s / 86400) + ' days ago'; };
 
 let state = { filter: 'all', jobs: [], itemState: {} };
+const bare = !location.search;
 const view = new URLSearchParams(location.search).get('view') || (new URLSearchParams(location.search).get('d') ? 'design' : 'library');
-for (const a of document.querySelectorAll('[data-view]')) if (a.dataset.view === view || (view === 'design' && a.dataset.view === 'library')) a.setAttribute('aria-current', 'page');
+const STEP_OF = { content: 'you', persona: 'you', explore: 'explore', library: 'library', design: 'library', compare: 'library', publish: 'publish' };
+for (const a of document.querySelectorAll('[data-view]')) if (a.dataset.view === STEP_OF[view]) a.setAttribute('aria-current', 'page');
 const params = new URLSearchParams(location.search);
 
 async function useDesign(id) {
@@ -196,127 +251,217 @@ function copy(text, hint) {
   (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(() => toast(hint), () => toast(text));
 }
 
+// ---- Shared pieces: confirm dialog, step progress, activity, next-step footer ----------------------
+const dlg = $('#dlg');
+// Resolves true only when the person clicks the (red) action button. Esc / Cancel / backdrop = false.
+function confirmDanger(title, text, action) {
+  return new Promise((resolve) => {
+    const done = (v) => { dlg.close(); resolve(v); };
+    fill($('.dbody', dlg), h('h3', null, title), h('p', null, text),
+      h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: () => done(false) }, 'Cancel'),
+        h('button', { class: 'btn danger', type: 'button', onclick: () => done(true) }, action)));
+    dlg.onclose = () => resolve(false);
+    dlg.showModal();
+    $('.btn', dlg).focus();
+  });
+}
+const plural = (n, one, many) => n + ' ' + (n === 1 ? one : many || one + 's');
+
+async function openCleanup() {
+  const c = await api('/api/cleanup');
+  const opt = (label, hint, n, what) => h('div', { class: 'cleanopt' }, h('span', null, label, h('small', null, hint)),
+    h('button', { class: 'btn', type: 'button', disabled: !n, onclick: async () => {
+      dlg.close();
+      if (await confirmDanger('Delete ' + plural(n, 'design') + '?', 'This permanently deletes them and their history. Your site and anything an agent is working on are never touched.', 'Delete ' + n)) {
+        try { const r = await api('/api/cleanup', { what }); toast('Deleted ' + plural(r.deleted, 'design')); refresh(); } catch (e) { toast(e.message); }
+      }
+    } }, n ? 'Delete ' + n : 'Nothing'));
+  fill($('.dbody', dlg), h('h3', null, 'Clean up'), h('p', null, 'Remove designs you don\'t need. Each option asks once more before deleting.'),
+    opt('Archived designs', 'everything you archived', c.archived, 'archived'),
+    opt('Unfinished drafts', 'designs that were never built', c.drafts, 'drafts'),
+    opt('Everything except favorites', 'keeps your starred designs and your site', c.keepFavorites, 'keep-favorites'),
+    h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: () => dlg.close() }, 'Close')));
+  dlg.showModal();
+}
+$('#cleanup').addEventListener('click', () => openCleanup().catch((e) => toast(e.message)));
+
+function paintSteps(p) {
+  const done = { you: p.content && p.persona, explore: p.liked > 0, library: p.chosen, publish: p.published };
+  for (const a of document.querySelectorAll('.steps a')) a.classList.toggle('done', !!done[a.dataset.view]);
+  for (const a of document.querySelectorAll('.steps a.done i')) a.textContent = '✓';
+}
+// The one place that says what's being made, instead of a job panel on every screen.
+function paintActivity() {
+  const act = state.jobs.filter((j) => j.status === 'active');
+  const box = $('#activity');
+  if (!act.length) return fill(box);
+  const total = act.reduce((n, j) => n + j.progress.total, 0), doneN = act.reduce((n, j) => n + j.progress.designed, 0);
+  const waiting = act.some((j) => j.progress.waiting > 0);
+  const open = box.querySelector('details') ? box.querySelector('details').open : false;
+  const r = state.runner || {};
+  fill(box, h('details', { class: 'activity', open: open || null },
+    h('summary', null, h('span', { class: 'dot' }), h('span', null, 'Making ' + (total === 1 && act[0].kind === 'persona' ? 'your persona' : plural(total, 'thing')) + ' · ' + doneN + '/' + total)),
+    h('div', { class: 'inner' },
+      act.map((j) => h('div', { class: 'row between' }, h('span', null, jobTitle(j)),
+        h('button', { class: 'linkbtn', type: 'button', onclick: async () => { if (!(await confirmDanger('Stop this?', 'Anything not made yet is dropped. Finished designs stay.', 'Stop'))) return; try { await api('/api/jobs/' + j.id + '/cancel', {}); toast('Stopped'); refresh(); } catch (e) { toast(e.message); } } }, 'stop'))),
+      waiting ? (r.available
+        ? h('button', { class: 'btn pri', type: 'button', disabled: r.running, onclick: async () => { try { state.runner = await api('/api/runner/start', {}); toast('Building with your API key'); refresh(); } catch (e) { toast(e.message); } } }, r.running ? 'Building…' : 'Build now')
+        : h('div', null, 'Waiting for your AI agent. ', h('button', { class: 'linkbtn', type: 'button', onclick: howItWorks }, 'How does this work?'))) : null,
+      r.running && r.log.length ? h('span', { class: 'mono' }, r.log[r.log.length - 1]) : null)));
+}
+function howItWorks() {
+  fill($('.dbody', dlg), h('h3', null, 'Who makes the designs?'),
+    h('p', null, 'folio writes a brief for each design. Your AI coding agent (Claude Code, Cursor, Codex…) or your Anthropic API key turns briefs into real sites.'),
+    h('p', null, h('b', null, 'With an agent: '), 'tell it “work on my folio jobs”. ', h('button', { class: 'linkbtn', type: 'button', onclick: () => copy(AGENT_ASK, 'Copied. Paste it to your agent') }, 'Copy that')),
+    h('p', null, h('b', null, 'With an API key: '), 'start folio with ANTHROPIC_API_KEY set and a “Build now” button appears here.'),
+    h('div', { class: 'row' }, h('button', { class: 'btn dark', type: 'button', onclick: () => dlg.close() }, 'Got it')));
+  if (!dlg.open) dlg.showModal();
+}
+function nextBar(text, label, href) {
+  return h('div', { class: 'nextbar' }, h('span', null, text), h('a', { class: 'btn pri', href }, label + ' →'));
+}
+function youTabs(active) {
+  return h('nav', { class: 'tabs', 'aria-label': 'You' },
+    h('a', { href: '/studio?view=content', 'aria-current': active === 'content' ? 'page' : null }, 'Your content'),
+    h('a', { href: '/studio?view=persona', 'aria-current': active === 'persona' ? 'page' : null }, 'How we read you'));
+}
+
 const AGENT_ASK = 'Work on my folio jobs';
 const cmpKey = 'folio-compare';
 function cmpGet() { try { return JSON.parse(sessionStorage.getItem(cmpKey) || '[]'); } catch { return []; } }
 function cmpToggle(id) { const c = cmpGet(); const n = c.includes(id) ? c.filter((x) => x !== id) : [...c, id].slice(-4); try { sessionStorage.setItem(cmpKey, JSON.stringify(n)); } catch {} refresh(); }
-function agentBox() {
-  const r = state.runner || {};
-  return h('div', { class: 'agentbox' }, 'Tell your agent:', h('code', null, AGENT_ASK),
-    h('button', { class: 'btn', type: 'button', onclick: () => copy(AGENT_ASK, 'Copied. Paste it to Claude Code, Cursor or Codex (it runs: folio jobs next)') }, 'Copy'),
-    r.available ? h('button', { class: 'btn pri', type: 'button', disabled: r.running, onclick: async () => { try { state.runner = await api('/api/runner/start', {}); toast('Building with your API key'); refresh(); } catch (e) { toast(e.message); } } }, r.running ? 'Building…' : 'Build now with my API key')
-      : h('span', { class: 'mono' }, 'no agent? run: folio run (uses your ANTHROPIC_API_KEY)'),
-    r.running && r.log.length ? h('span', { class: 'mono', role: 'status' }, r.log[r.log.length - 1]) : null);
-}
 async function startJob(body) {
   try {
     const j = await api('/api/jobs', body);
     state.newRun = false;
-    toast('Round ' + j.run + ' started: ' + j.progress.total + ' designs waiting for your agent');
-    if (params.get('d')) location.href = '/studio';
+    toast(plural(j.progress.total, 'new design') + ' on the way');
+    if (params.get('d')) location.href = '/studio?view=library';
     else await refresh();
   } catch (e) { toast(e.message); }
 }
 function newRunPanel() {
   const pick = (n) => h('button', { class: 'chip', type: 'button', 'aria-pressed': String((state.count || 6) === n), onclick: () => { state.count = n; refresh(); } }, String(n));
   return h('section', { class: 'newrun', 'aria-label': 'New round' },
-    h('b', null, 'New round of designs'),
-    h('p', { class: 'sub', style: 'margin:0' }, 'Each one is a different direction for your content. Your agent designs them; they appear here as they land.'),
+    h('b', null, 'New designs'),
+    h('p', { class: 'sub', style: 'margin:0' }, 'Each one is a different direction, chosen for you and never repeating what you have seen. Tip: liking looks in Explore first gives better results.'),
     h('div', { class: 'row' }, 'How many?', pick(3), pick(6), pick(9)),
     h('div', { class: 'row' },
-      h('button', { class: 'btn pri', type: 'button', onclick: () => startJob({ count: state.count || 6 }) }, 'Start round'),
+      h('button', { class: 'btn pri', type: 'button', onclick: () => startJob({ count: state.count || 6 }) }, 'Make ' + (state.count || 6)),
       h('button', { class: 'btn', type: 'button', onclick: () => { state.newRun = false; refresh(); } }, 'Cancel')));
 }
-function jobCard(j) {
+function jobTitle(j) {
   const p = j.progress;
-  const what = j.kind === 'mix' ? 'A mix of your picks' : j.kind === 'variations' ? 'More like ' + j.like + ' (keep ' + j.keep + ')' : j.kind === 'from-sketches' ? 'Building ' + p.total + ' liked sketches' : p.total + ' new directions';
-  const title = j.kind === 'persona' ? (j.correction ? 'Persona re-read: “' + j.correction + '”' : 'Reading your profile') : j.kind === 'sketches' ? 'Your agent is inventing sketches' : 'Round ' + j.run + ' · ' + what;
-  return h('section', { class: 'job', 'aria-label': title },
-    h('div', { class: 'row between' },
-      h('b', null, title),
-      h('span', { class: 'mono' }, p.designed + ' designed · ' + p.working + ' working · ' + p.waiting + ' waiting' + (p.failed ? ' · ' + p.failed + ' need fixes' : ''))),
-    h('div', { class: 'bar', role: 'img', 'aria-label': p.designed + ' of ' + p.total + ' designed' }, j.items.map((i) => h('i', { class: i.state, title: i.theme + ': ' + i.state }))),
-    p.waiting ? agentBox() : null,
-    h('div', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: async () => { try { await api('/api/jobs/' + j.id + '/cancel', {}); toast('Round ' + j.run + ' cancelled. Undesigned drafts archived'); refresh(); } catch (e) { toast(e.message); } } }, 'Cancel round')));
+  if (j.kind === 'persona') return j.correction ? 'Re-reading you' : 'Reading you';
+  if (j.kind === 'sketches') return 'Inventing sketches';
+  if (j.kind === 'content') return 'Reading your resume';
+  if (j.kind === 'mix') return 'Your mix';
+  if (j.kind === 'variations') return plural(p.total, 'variation');
+  if (j.kind === 'from-sketches') return plural(p.total, 'liked sketch', 'liked sketches') + ' → sites';
+  return plural(p.total, 'new design');
 }
+async function deleteDesign(d, after) {
+  if (!(await confirmDanger('Delete “' + titleOf(d) + '”?', 'This permanently deletes the design and all its versions.', 'Delete'))) return;
+  try { await api('/api/designs/' + encodeURIComponent(d.id) + '/delete', {}); toast('Deleted ' + titleOf(d)); after ? after() : refresh(); } catch (e) { toast(e.message); }
+}
+function menu(items) {
+  const det = h('details', { class: 'menu' }, h('summary', { class: 'iconbtn', 'aria-label': 'More actions' }, '⋯'),
+    h('div', { class: 'pop', role: 'menu' }, items.filter(Boolean).map(([label, fn, opts = {}]) =>
+      h('button', { type: 'button', role: 'menuitem', class: opts.danger ? 'danger' : null, disabled: opts.disabled || null, onclick: () => { det.open = false; fn(); } }, label))));
+  return det;
+}
+document.addEventListener('click', (e) => { for (const m of document.querySelectorAll('details.menu[open]')) if (!m.contains(e.target)) m.open = false; });
 
 function card(d) {
   const open = '/studio?d=' + encodeURIComponent(d.id);
-  return h('article', { class: 'card' + (d.current ? ' cur' : '') + (d.archived ? ' arch' : '') },
-    d.missing ? h('div', { class: 'thumb' }) : thumb(d.id),
+  const working = state.itemState[d.id] === 'working';
+  const go = () => { location.href = open; };
+  const picked = cmpGet().includes(d.id);
+  let preview;
+  if (d.pending || d.missing) preview = h('div', { class: 'waiting' }, d.missing ? 'File missing' : working ? 'Being designed…' : 'Waiting to be designed');
+  else { preview = thumb(d.id); preview.addEventListener('click', go); }
+  return h('article', { class: 'card' + (d.current ? ' cur' : '') + (d.archived ? ' arch' : '') }, preview,
     h('div', { class: 'body' },
-      h('div', { class: 'top' }, h('b', null, titleOf(d)), h('span', { class: 'mono' }, d.latest ? 'v' + d.latest : '')),
-      h('div', { class: 'badges' },
-        d.current && h('span', { class: 'badge mine' }, '★ your site'),
-        d.pending && (state.itemState[d.id] === 'working' ? h('span', { class: 'badge work' }, 'agent working…') : h('span', { class: 'badge pend' }, 'waiting for your agent')),
-        d.wildcard && h('span', { class: 'badge wild' }, 'wildcard'),
-        d.missing && h('span', { class: 'badge pend' }, 'file missing · restorable'),
-        d.versions > 1 && h('span', { class: 'badge' }, d.versions + ' versions')),
-      h('p', { class: 'desc', style: 'margin:0' }, d.pending ? (state.itemState[d.id] === 'working' ? 'An agent is designing this one right now.' : 'Not designed yet. Ask your agent to work on your folio jobs.') : (d.description || 'No description yet.')),
-      h('div', { class: 'acts' },
-        h('a', { class: 'btn dark', href: open }, 'Open'),
-        !d.current && h('button', { class: 'btn', type: 'button', disabled: d.pending || d.missing, onclick: () => useDesign(d.id).catch((e) => toast(e.message)) }, 'Make my site'),
-        h('button', { class: 'btn star', type: 'button', 'aria-pressed': String(!!d.favorite), 'aria-label': (d.favorite ? 'Unfavorite ' : 'Favorite ') + d.id, onclick: () => flag(d.id, 'favorite', !d.favorite) }, d.favorite ? '★' : '☆'),
-        h('button', { class: 'btn', type: 'button', onclick: () => flag(d.id, 'archived', !d.archived) }, d.archived ? 'Unarchive' : 'Archive'),
-        !d.pending && !d.missing && h('button', { class: 'btn', type: 'button', 'aria-pressed': String(cmpGet().includes(d.id)), onclick: () => cmpToggle(d.id) }, cmpGet().includes(d.id) ? '✓ Compare' : 'Compare'))));
+      h('div', { class: 'top' }, h('b', null, titleOf(d)), d.current ? h('span', { class: 'badge mine' }, 'your site') : d.wildcard ? h('span', { class: 'badge wild' }, 'surprise') : null),
+      h('p', { class: 'desc clamp', style: 'margin:0' }, d.pending ? '' : (d.description || '')),
+      h('div', { class: 'acts', style: 'align-items:center' },
+        d.pending ? null : h('a', { class: 'btn dark', href: open }, 'Open'),
+        d.pending || d.missing ? null : h('button', { class: 'iconbtn', type: 'button', 'aria-pressed': String(!!d.favorite), 'aria-label': d.favorite ? 'Unfavorite' : 'Favorite', onclick: () => flag(d.id, 'favorite', !d.favorite) }, d.favorite ? '★' : '☆'),
+        picked ? h('span', { class: 'badge' }, 'comparing') : null,
+        h('span', { style: 'margin-left:auto' }),
+        menu([
+          !d.current && !d.pending && !d.missing && ['Make this my site', () => useDesign(d.id).catch((e) => toast(e.message))],
+          !d.pending && !d.missing && [picked ? 'Remove from compare' : 'Add to compare', () => cmpToggle(d.id)],
+          [d.archived ? 'Unarchive' : 'Archive', () => flag(d.id, 'archived', !d.archived)],
+          ['Delete…', () => deleteDesign(d), { danger: true, disabled: d.current || working }],
+        ]))));
+}
+
+const roundTitle = (r, lib) => {
+  const parent = r.parent ? lib.designs.find((d) => d.id === r.parent) : null;
+  return 'Round ' + r.run + ' · ' + (r.parent ? 'More like ' + (parent ? titleOf(parent) : 'an earlier design') : plural(r.count, 'design'));
+};
+async function deleteRound(r, lib) {
+  const n = (await api('/api/cleanup')).rounds[r.run] || 0;
+  if (!n) return toast('Nothing to delete: favorites, your site and designs being made are kept');
+  if (!(await confirmDanger('Delete ' + roundTitle(r, lib) + '?', 'Deletes ' + plural(n, 'design') + ' from this round, permanently. Favorites and your site stay.', 'Delete ' + n))) return;
+  try { const res = await api('/api/cleanup', { what: 'round', run: r.run }); toast('Deleted ' + plural(res.deleted, 'design')); refresh(); } catch (e) { toast(e.message); }
 }
 
 function renderLibrary(lib) {
   const main = $('main');
-  fill(main, );
-  const first = (lib.profile.name || 'Your').split(/\s+/)[0];
   const visible = lib.designs.filter((d) => state.filter === 'archived' ? d.archived : state.filter === 'favorites' ? d.favorite && !d.archived : !d.archived);
-  const built = lib.designs.filter((d) => !d.pending && !d.archived).length;
-  main.append(
-    h('header', { class: 'row between' },
-      h('div', null, h('h1', null, first + "'s designs"),
-        h('p', { class: 'sub' }, lib.designs.length + (lib.designs.length === 1 ? ' design · ' : ' designs · ') + built + ' ready · ' + lib.runs.length + (lib.runs.length === 1 ? ' round' : ' rounds') + ' · nothing is ever deleted')),
-      h('div', { class: 'row' },
-        h('button', { class: 'btn pri', type: 'button', onclick: () => { state.newRun = true; refresh(); } }, 'New round of designs'))));
-  if (state.newRun) main.append(newRunPanel());
-  const active = state.jobs.filter((j) => j.status === 'active' && j.kind !== 'persona' && j.kind !== 'sketches');
-  if (active.length) main.append(h('div', { class: 'jobs' }, active.map(jobCard)));
-
+  const counts = { all: lib.designs.filter((d) => !d.archived).length, favorites: lib.designs.filter((d) => d.favorite && !d.archived).length, archived: lib.designs.filter((d) => d.archived).length };
   const cur = lib.designs.find((d) => d.current) || null;
   const curBuiltin = !cur && lib.current ? lib.builtins.find((b) => b.id === lib.current) : null;
-  if (cur || curBuiltin) {
-    const id = cur ? cur.id : curBuiltin.id;
-    main.append(h('section', { class: 'live', 'aria-label': 'Your site' },
-      thumb(id),
+  // Open by default: the newest round, and the newest round with finished designs (often the same one).
+  if (!state.openRounds) {
+    const withBuilt = lib.runs.find((r) => lib.designs.some((d) => d.run === r.run && !d.pending && !d.archived));
+    state.openRounds = new Set([lib.runs[0]?.run, withBuilt?.run].filter((x) => x != null));
+  }
+  const sel = cmpGet();
+
+  const groups = lib.runs.map((r) => ({ r, items: visible.filter((d) => d.run === r.run) })).filter((g) => g.items.length);
+  const own = visible.filter((d) => d.run == null);
+  const roundSection = (g) => {
+    const det = h('details', { class: 'round', open: state.filter !== 'all' || state.openRounds.has(g.r.run) || null },
+      h('summary', null, h('h2', null, roundTitle(g.r, lib)),
+        h('span', { class: 'row' }, h('span', { class: 'mono' }, plural(g.items.length, 'design') + (g.r.created ? ' · ' + ago(g.r.created) : '')),
+          h('button', { class: 'linkbtn danger', type: 'button', onclick: (e) => { e.preventDefault(); deleteRound(g.r, lib); } }, 'delete round'))),
+      h('div', { class: 'grid' }, g.items.map(card)));
+    det.addEventListener('toggle', () => { det.open ? state.openRounds.add(g.r.run) : state.openRounds.delete(g.r.run); });
+    return det;
+  };
+
+  fill(main,
+    h('header', { class: 'row between' },
+      h('div', null, h('h1', null, 'Your designs'),
+        h('p', { class: 'sub' }, lib.designs.length ? plural(counts.all, 'design') + (counts.archived ? ' · ' + counts.archived + ' archived' : '') : 'Full sites built from the looks you liked.')),
+      h('div', { class: 'row' }, h('button', { class: 'btn pri', type: 'button', onclick: () => { state.newRun = !state.newRun; refresh(); } }, 'New designs'))),
+    state.newRun ? newRunPanel() : null,
+    cur || curBuiltin ? h('section', { class: 'live', 'aria-label': 'Your site' },
+      thumb(cur ? cur.id : curBuiltin.id),
       h('div', { style: 'flex:1 1 260px;min-width:0' },
         h('div', { class: 'k' }, lib.publishes.length ? '● live' : '● your site'),
-        h('div', { class: 't' }, (lib.profile.url ? lib.profile.url.replace(/^https?:\/\//, '') + ' · ' : '') + (cur ? titleOf(cur) + (cur.latest ? ' v' + cur.latest : '') : id + ' (built-in)')),
-        h('div', { class: 'd' }, lib.publishes.length ? 'Last published ' + ago(lib.publishes[0].at) : 'Not published yet · run folio deploy when you are ready')),
+        h('div', { class: 't' }, cur ? titleOf(cur) : curBuiltin.id + ' (built-in theme)'),
+        h('div', { class: 'd' }, lib.publishes.length ? 'Published ' + ago(lib.publishes[0].at) : 'Not published yet')),
       h('div', { class: 'row' },
-        cur && h('a', { class: 'btn', href: '/studio?d=' + encodeURIComponent(id) }, 'Open design'),
-        h('a', { class: 'btn lime', href: '/', target: '_blank', rel: 'noopener' }, 'View site ↗'))));
-  }
-
-  const counts = { all: lib.designs.filter((d) => !d.archived).length, favorites: lib.designs.filter((d) => d.favorite && !d.archived).length, archived: lib.designs.filter((d) => d.archived).length };
-  main.append(h('div', { class: 'row', role: 'group', 'aria-label': 'Filter' },
-    [['all', 'All'], ['favorites', '★ Favorites'], ['archived', 'Archived']].map(([k, label]) =>
-      h('button', { class: 'chip', type: 'button', 'aria-pressed': String(state.filter === k), onclick: () => { state.filter = k; renderLibrary(lib); } }, label + ' ' + counts[k]))));
-
-  if (!lib.designs.length) {
-    main.append(h('div', { class: 'empty' }, 'No designs yet. Ask your agent to "generate designs for my portfolio", or run folio generate. They appear here live as they land.'));
-  }
-  const groups = [];
-  for (const r of lib.runs) groups.push({ title: r.parent ? 'Round ' + r.run + ' · More like ' + r.parent : 'Round ' + r.run + ' · ' + r.count + ' directions', note: r.keep ? 'kept: ' + r.keep : '', items: visible.filter((d) => d.run === r.run) });
-  groups.push({ title: 'Your own designs', note: 'made with folio theme new or by hand', items: visible.filter((d) => d.run == null) });
-  for (const g of groups) {
-    if (!g.items.length) continue;
-    main.append(h('section', { class: 'section' }, h('div', { class: 'h' }, h('h2', null, g.title), h('span', { class: 'mono' }, g.note)), h('div', { class: 'grid' }, g.items.map(card))));
-  }
-  if (!visible.length && lib.designs.length) main.append(h('div', { class: 'empty' }, state.filter === 'favorites' ? 'No favorites yet. Star a design to keep it close.' : 'Nothing archived.'));
-
-  const sel = cmpGet();
-  if (sel.length) main.append(h('div', { class: 'cmpbar' }, h('span', null, sel.length + ' picked to compare: ' + sel.join(', ')),
-    h('span', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: () => { try { sessionStorage.removeItem(cmpKey); } catch {} refresh(); } }, 'Clear'),
-      sel.length >= 2 ? h('a', { class: 'btn lime', href: '/studio?view=compare&ids=' + sel.map(encodeURIComponent).join(',') }, 'Compare ' + sel.length + ' →') : h('span', { class: 'mono', style: 'color:inherit' }, 'pick one more'))));
-  main.append(h('section', { class: 'section' }, h('div', { class: 'h' }, h('h2', null, 'Built-in themes'), h('span', { class: 'mono' }, 'starting points')),
-    h('div', { class: 'grid' }, lib.builtins.map((b) => h('article', { class: 'card' + (lib.current === b.id ? ' cur' : '') }, thumb(b.id),
-      h('div', { class: 'body' }, h('b', null, b.id), h('p', { class: 'desc', style: 'margin:0' }, b.description),
-        h('div', { class: 'acts' }, lib.current === b.id ? h('span', { class: 'badge mine' }, '★ your site') : h('button', { class: 'btn', type: 'button', onclick: () => useDesign(b.id).catch((e) => toast(e.message)) }, 'Make my site'))))))));
+        h('a', { class: 'btn', href: '/', target: '_blank', rel: 'noopener' }, 'View ↗'),
+        h('a', { class: 'btn lime', href: '/studio?view=publish' }, lib.publishes.length ? 'Publish again' : 'Publish'))) : null,
+    lib.designs.length ? h('div', { class: 'row', role: 'group', 'aria-label': 'Filter' },
+      [['all', 'All'], ['favorites', '★ Favorites'], counts.archived ? ['archived', 'Archived'] : null].filter(Boolean).map(([k, label]) =>
+        h('button', { class: 'chip', type: 'button', 'aria-pressed': String(state.filter === k), onclick: () => { state.filter = k; renderLibrary(lib); } }, label + ' ' + counts[k]))) : null,
+    !lib.designs.length ? h('div', { class: 'empty' }, 'No designs yet. Like a few looks in Explore and build them, or start a round with “New designs”.') : null,
+    groups.map(roundSection),
+    own.length ? h('section', { class: 'section' }, h('h2', null, 'Your own designs'), h('div', { class: 'grid' }, own.map(card))) : null,
+    !visible.length && lib.designs.length ? h('div', { class: 'empty' }, state.filter === 'favorites' ? 'No favorites yet. Star a design to keep it close.' : 'Nothing archived.') : null,
+    sel.length ? h('div', { class: 'cmpbar' }, h('span', null, 'Comparing ' + sel.length + (sel.length < 2 ? ' · add one more' : '')),
+      h('span', { class: 'row' }, h('button', { class: 'btn', type: 'button', onclick: () => { try { sessionStorage.removeItem(cmpKey); } catch {} refresh(); } }, 'Clear'),
+        sel.length >= 2 ? h('a', { class: 'btn lime', href: '/studio?view=compare&ids=' + sel.map(encodeURIComponent).join(',') }, 'Compare →') : null)) : null,
+    h('details', { class: 'round' }, h('summary', null, h('h2', null, 'Built-in themes'), h('span', { class: 'mono' }, 'quick starting points')),
+      h('div', { class: 'grid' }, lib.builtins.map((b) => h('article', { class: 'card' + (lib.current === b.id ? ' cur' : '') }, thumb(b.id),
+        h('div', { class: 'body' }, h('b', null, b.id), h('p', { class: 'desc clamp', style: 'margin:0' }, b.description),
+          h('div', { class: 'acts' }, lib.current === b.id ? h('span', { class: 'badge mine' }, 'your site') : h('button', { class: 'btn', type: 'button', onclick: () => useDesign(b.id).catch((e) => toast(e.message)) }, 'Make this my site'))))))),
+    cur ? nextBar('Happy with ' + titleOf(cur) + '?', 'Publish it', '/studio?view=publish') : lib.designs.some((d) => !d.pending) ? h('div', { class: 'nextbar' }, h('span', null, 'Open a design and choose “Make this my site”, then publish it.')) : null);
 }
 
 async function renderDesign(id) {
@@ -329,15 +474,19 @@ async function renderDesign(id) {
   fill(main, 
     h('header', { class: 'row between' },
       h('div', null,
-        h('a', { href: '/studio' }, '← Library'),
+        h('a', { href: '/studio?view=library' }, '← Designs'),
         h('h1', { style: 'margin-top:6px' }, titleOf(info.id ? info : d)),
-        h('p', { class: 'sub' }, (info.description || '') + (d.parent ? ' · branched from ' + d.parent : ''))),
+        h('p', { class: 'sub' }, info.description || '')),
       h('div', { class: 'row' },
-        info.current ? h('span', { class: 'badge mine' }, '★ your site') : h('button', { class: 'btn pri', type: 'button', disabled: info.pending, onclick: () => useDesign(id).catch((e) => toast(e.message)) }, 'Make my site'),
+        info.current ? h('span', { class: 'badge mine' }, 'your site') : h('button', { class: 'btn pri', type: 'button', disabled: info.pending, onclick: () => useDesign(id).catch((e) => toast(e.message)) }, 'Make this my site'),
         h('button', { class: 'btn', type: 'button', 'aria-expanded': String(!!state.more), onclick: () => { state.more = !state.more; renderDesign(id); } }, 'More like this'),
-        h('button', { class: 'btn star', type: 'button', 'aria-pressed': String(!!d.favorite), onclick: () => flag(id, 'favorite', !d.favorite) }, d.favorite ? '★ Favorite' : '☆ Favorite'),
+        h('button', { class: 'iconbtn', type: 'button', 'aria-pressed': String(!!d.favorite), 'aria-label': d.favorite ? 'Unfavorite' : 'Favorite', onclick: () => flag(id, 'favorite', !d.favorite) }, d.favorite ? '★' : '☆'),
         h('a', { class: 'btn', href: '/preview/' + encodeURIComponent(id) + (sel && sel !== latest ? '?v=' + sel : ''), target: '_blank', rel: 'noopener' }, 'Open full ↗'),
-        lib.current && lib.current !== id ? h('a', { class: 'btn', href: '/studio?view=compare&ids=' + encodeURIComponent(id) + ',' + encodeURIComponent(lib.current) }, 'Compare with my site') : null)),
+        menu([
+          lib.current && lib.current !== id && ['Compare with my site', () => { location.href = '/studio?view=compare&ids=' + encodeURIComponent(id) + ',' + encodeURIComponent(lib.current); }],
+          [d.archived ? 'Unarchive' : 'Archive', () => flag(id, 'archived', !d.archived).then(() => renderDesign(id))],
+          ['Delete design…', () => deleteDesign(info.id ? info : d, () => { location.href = '/studio?view=library'; }), { danger: true, disabled: info.current }],
+        ]))),
     state.more ? h('section', { class: 'newrun', 'aria-label': 'More like this' },
       h('b', null, 'More like ' + titleOf(info.id ? info : d)),
       h('p', { class: 'sub', style: 'margin:0' }, 'What do you like about it? That stays. Each variation changes two big things.'),
@@ -356,18 +505,19 @@ async function renderDesign(id) {
         h('div', { class: 'frame' + (device === 'phone' ? ' phone' : '') },
           h('div', { class: 'win' }, h('iframe', { src: '/preview/' + encodeURIComponent(id) + (sel && sel !== latest ? '?v=' + sel : ''), sandbox: 'allow-scripts', title: id + ' preview' })))),
       h('aside', { class: 'panel', 'aria-label': 'History' },
-        h('div', null, h('b', null, 'History'), h('p', { class: 'sub', style: 'margin:2px 0 0;font-size:13.5px' }, 'Every change is a version. Restoring adds a new version on top, so nothing is lost.')),
+        h('div', null, h('b', null, 'Versions'), h('p', { class: 'sub', style: 'margin:2px 0 0;font-size:13.5px' }, 'Click one to preview it. Restoring makes it the latest again.')),
         d.versions.length ? h('ol', { class: 'hist' }, d.versions.map((v) => h('li', { 'aria-current': String(v.n === sel) },
           h('button', { class: 'v', type: 'button', onclick: () => { state.v = v.n; renderDesign(id); }, 'aria-label': 'Preview version ' + v.n }, 'v' + v.n),
-          h('span', null, v.note, h('small', null, ago(v.at))),
-          v.n === latest ? h('span', { class: 'mono' }, 'latest') : h('button', { class: 'btn', type: 'button', onclick: async () => { try { const r = await api('/api/designs/' + encodeURIComponent(id) + '/restore', { n: v.n }); state.v = null; toast('Restored v' + v.n + ' as v' + r.version); renderDesign(id); } catch (e) { toast(e.message); } } }, 'Restore')))) : h('p', { class: 'sub' }, 'No versions yet: this design is still being made.'),
-        d.children.length ? h('div', null, h('b', null, 'Branches'), h('p', { class: 'sub', style: 'margin:4px 0 0' }, d.children.map((c, i) => [i ? ', ' : '', h('a', { href: '/studio?d=' + encodeURIComponent(c) }, c)]))) : null,
-        h('button', { class: 'btn', type: 'button', onclick: () => flag(id, 'archived', !d.archived).then(() => renderDesign(id)) }, d.archived ? 'Unarchive' : 'Archive'))));
-}
-
-function jobsOf(kinds) {
-  const act = state.jobs.filter((j) => j.status === 'active' && kinds.includes(j.kind));
-  return act.length ? h('div', { class: 'jobs' }, act.map(jobCard)) : null;
+          h('span', null, NOTE[v.note] || v.note, h('small', null, ago(v.at))),
+          v.n === latest ? h('span', { class: 'mono' }, 'latest') : h('span', { class: 'row', style: 'gap:6px' },
+            h('button', { class: 'btn', type: 'button', onclick: async () => { try { await api('/api/designs/' + encodeURIComponent(id) + '/restore', { n: v.n }); state.v = null; toast('v' + v.n + ' is the latest again'); renderDesign(id); } catch (e) { toast(e.message); } } }, 'Restore'),
+            h('button', { class: 'iconbtn', type: 'button', 'aria-label': 'Delete version ' + v.n, onclick: async () => { if (!(await confirmDanger('Delete v' + v.n + '?', 'This version is removed for good. The others stay.', 'Delete'))) return; try { await api('/api/designs/' + encodeURIComponent(id) + '/delete-version', { n: v.n }); if (state.v === v.n) state.v = null; toast('Deleted v' + v.n); renderDesign(id); } catch (e) { toast(e.message); } } }, '×'))))) : h('p', { class: 'sub' }, 'No versions yet: this design is still being made.'),
+        d.versions.length > 2 ? h('button', { class: 'linkbtn danger', type: 'button', onclick: async () => {
+          const older = d.versions.slice(1);
+          if (!(await confirmDanger('Delete ' + plural(older.length, 'older version') + '?', 'Only the latest version (v' + latest + ') is kept.', 'Delete ' + older.length))) return;
+          try { for (const v of older) await api('/api/designs/' + encodeURIComponent(id) + '/delete-version', { n: v.n }); state.v = null; toast('Kept only v' + latest); renderDesign(id); } catch (e) { toast(e.message); }
+        } }, 'Delete older versions') : null,
+        d.children.length ? h('div', null, h('b', null, 'Variations of this'), h('p', { class: 'sub', style: 'margin:4px 0 0' }, d.children.map((c, i) => { const cd = lib.designs.find((x) => x.id === c); return [i ? ', ' : '', h('a', { href: '/studio?d=' + encodeURIComponent(c) }, cd ? titleOf(cd) : c)]; }))) : null)));
 }
 
 async function renderPersona() {
@@ -384,8 +534,8 @@ async function renderPersona() {
 
   if (!persona) {
     fill(main, 
+      youTabs('persona'),
       h('header', null, h('h1', null, 'How we read you'), h('p', { class: 'sub' }, 'Your agent reads your resume and repos, then writes a persona card you can see and correct. Every design starts from it.')),
-      jobsOf(['persona']),
       h('div', { class: 'cols' }, qBlock,
         h('div', { class: 'box' }, h('b', null, 'Read me'), h('p', { class: 'sub', style: 'margin:0' }, 'Starts a job for your agent. Answer the questions first if you can; it will use them.'),
           h('div', { class: 'row' }, h('button', { class: 'btn pri', type: 'button', onclick: async () => { try { await api('/api/persona/read', {}); toast('Ready for your agent'); refresh(); } catch (e) { toast(e.message); } } }, 'Ask my agent to read me')))));
@@ -398,10 +548,8 @@ async function renderPersona() {
   const worldIn = h('input', { 'aria-label': 'Add a world', placeholder: 'add a world', style: 'min-height:36px;border:1px dashed var(--line2);border-radius:999px;padding:0 12px;font:inherit;font-size:14px;background:transparent;color:var(--ink);width:150px' });
   const saveWorlds = async (w) => { try { await api('/api/persona', { worlds: w }); refresh(); } catch (e) { toast(e.message); } };
   fill(main, 
-    h('header', { class: 'row between' },
-      h('div', null, h('p', { class: 'mono', style: 'margin:0' }, 'How we read you · v' + persona.n), h('h1', { style: 'margin-top:6px' }, persona.headline), h('p', { class: 'sub' }, persona.lede)),
-      h('a', { class: 'btn pri', href: '/studio?view=explore' }, 'Show me designs →')),
-    jobsOf(['persona']),
+    youTabs('persona'),
+    h('header', null, h('h1', null, persona.headline), h('p', { class: 'sub' }, persona.lede)),
     h('div', { class: 'cols' },
       h('div', { class: 'wide', style: 'display:flex;flex-direction:column;gap:16px' },
         h('div', { class: 'pcard' }, persona.traits.map((t) => h('div', { class: 'trait' }, h('span', { class: 'k' }, t.key),
@@ -415,7 +563,7 @@ async function renderPersona() {
         h('div', { class: 'box' }, h('b', null, 'Your worlds'), h('div', { class: 'row' },
           persona.worlds.map((w) => h('button', { class: 'chip', type: 'button', 'aria-label': 'Remove ' + w, onclick: () => saveWorlds(persona.worlds.filter((x) => x !== w)) }, w + ' ×')),
           h('form', { onsubmit: (e) => { e.preventDefault(); if (worldIn.value.trim()) saveWorlds([...persona.worlds, worldIn.value.trim()]); } }, worldIn))),
-        h('div', { class: 'box' }, h('b', null, 'Versions'), h('ol', { class: 'hist' }, persona.versions.slice(0, 6).map((v, i) => h('li', null, h('b', { class: 'mono' }, 'v' + v.n), h('span', null, v.note, h('small', null, ago(v.at))),
+        persona.versions.length < 2 ? null : h('div', { class: 'box' }, h('b', null, 'Earlier reads'), h('ol', { class: 'hist' }, persona.versions.slice(0, 6).map((v, i) => h('li', null, h('b', { class: 'mono' }, 'v' + v.n), h('span', null, v.note, h('small', null, ago(v.at))),
           i === 0 ? h('span', { class: 'mono' }, 'current') : h('button', { class: 'btn', type: 'button', onclick: async () => { try { await api('/api/persona/restore', { n: v.n }); toast('Restored v' + v.n); refresh(); } catch (e) { toast(e.message); } } }, 'Restore'))))))),
     qBlock,
     h('section', { class: 'section' }, h('div', { class: 'h' }, h('h2', null, 'Reference board'), h('span', { class: 'mono' }, 'principles from your worlds · credited · nothing copied')),
@@ -429,7 +577,8 @@ async function renderPersona() {
             r.url ? h('a', { class: 'btn', href: r.url, target: '_blank', rel: 'noopener noreferrer' }, 'Source ↗') : null,
             h('button', { class: 'btn star', type: 'button', 'aria-pressed': String(!!r.pinned), onclick: async () => { await api('/api/references/' + r.id + '/flag', { flag: 'pinned', value: !r.pinned }); refresh(); } }, r.pinned ? '★ Pinned' : '☆ Pin'),
             h('button', { class: 'btn', type: 'button', onclick: async () => { await api('/api/references/' + r.id + '/flag', { flag: 'hidden', value: !r.hidden }); refresh(); } }, r.hidden ? 'Show' : 'Hide')))))) :
-        h('div', { class: 'empty' }, 'No references yet. Your agent adds them from open archives and web sources that allow it (folio refs add).')));
+        h('div', { class: 'empty' }, 'No references yet. Your agent adds them from open archives and web sources that allow it (folio refs add).')),
+    nextBar('Feels like you?', 'Next: explore looks', '/studio?view=explore'));
 }
 
 function sketchThumb(id) {
@@ -449,42 +598,42 @@ async function renderExplore() {
   fill(main, 
     h('header', { class: 'row between' },
       h('div', null, h('h1', null, 'Which of these feel like you?'),
-        h('p', { class: 'sub' }, 'First screens only: quick to make, quick to throw away. Like the ones that click; only those get built into full sites.')),
+        h('p', { class: 'sub' }, 'Like the looks that click. Only those become full sites.')),
       h('div', { class: 'box', style: 'min-width:260px' }, h('b', null, 'Your taste so far'),
         data.taste.likes.length || data.taste.dislikes.length
           ? [h('span', null, 'Leaning ', h('b', null, data.taste.likes.join(', ') || '…')), data.taste.dislikes.length ? h('span', { class: 'sub', style: 'margin:0' }, 'Less ' + data.taste.dislikes.join(', ')) : null]
           : h('span', { class: 'sub', style: 'margin:0' }, 'Like or skip a few sketches and folio learns.'))),
-    jobsOf(['sketches', 'from-sketches']),
+    state.progress && !state.progress.persona ? h('div', { class: 'nextbar' }, h('span', null, 'Looks fit much better once we know you. Finish step 1 first?'), h('a', { class: 'btn', href: '/studio?view=persona' }, 'How we read you →')) : null,
     h('div', { class: 'row' },
-      h('button', { class: 'btn pri', type: 'button', onclick: () => newRound(false) }, '12 instant sketches'),
-      h('button', { class: 'btn', type: 'button', onclick: () => newRound(true) }, 'Ask my agent for 12 inventive ones'),
-      h('span', { class: 'mono' }, 'instant ones come from your persona and likes; every 4th is a wildcard')),
-    liked.length ? h('div', { class: 'buildbar' }, h('span', null, h('b', null, liked.length + ' liked'), ' · skipped ones stay here, nothing is lost'),
-      h('button', { class: 'btn lime', type: 'button', onclick: async () => { try { const j = await api('/api/sketches/build', { ids: liked.slice(0, 6) }); toast('Round ' + j.run + ': building ' + j.progress.total + ' full sites, ready for your agent'); location.href = '/studio'; } catch (e) { toast(e.message); } } }, 'Build ' + Math.min(liked.length, 6) + ' full sites')) : null,
-    data.rounds.length ? data.rounds.map((r) => h('section', { class: 'section' },
-      h('div', { class: 'h' }, h('h2', null, 'Sketch round ' + r.round), h('span', { class: 'mono' }, (r.source === 'agent' ? 'invented by your agent' : 'instant') + ' · ' + ago(r.createdAt))),
+      h('button', { class: 'btn pri', type: 'button', onclick: () => newRound(false) }, data.rounds.length ? 'Show me 12 more' : 'Show me 12 looks'),
+      h('button', { class: 'linkbtn', type: 'button', onclick: () => newRound(true) }, 'or ask my AI agent to invent 12')),
+    liked.length ? h('div', { class: 'buildbar' }, h('span', null, h('b', null, plural(liked.length, 'look') + ' liked'), liked.length > 6 ? ' · the first 6 get built' : ''),
+      h('button', { class: 'btn lime', type: 'button', onclick: async () => { try { const j = await api('/api/sketches/build', { ids: liked.slice(0, 6) }); toast('Building ' + plural(j.progress.total, 'full site')); location.href = '/studio?view=library'; } catch (e) { toast(e.message); } } }, 'Build ' + (Math.min(liked.length, 6) === 1 ? 'it' : 'them') + ' as full sites →')) : null,
+    data.rounds.length ? data.rounds.map((r, ri) => h('details', { class: 'round', open: ri === 0 || null },
+      h('summary', null, h('h2', null, 'Looks ' + r.round), h('span', { class: 'row' }, h('span', { class: 'mono' }, (r.source === 'agent' ? 'invented by your agent · ' : '') + ago(r.createdAt)),
+        h('button', { class: 'linkbtn danger', type: 'button', onclick: async (e) => { e.preventDefault(); if (!(await confirmDanger('Delete these ' + r.specs.length + ' looks?', 'Your likes and skips on them go too.', 'Delete'))) return; try { await api('/api/sketches/round/' + r.round + '/delete', {}); toast('Deleted'); refresh(); } catch (err) { toast(err.message); } } }, 'delete'))),
       h('div', { class: 'grid' }, r.specs.map((sp) => {
         const on = !!data.picks.liked[sp.id], off = !!data.picks.skipped[sp.id];
         return h('article', { class: 'card sk' + (on ? ' liked' : '') + (off ? ' skipped' : '') }, sketchThumb(sp.id),
-          h('div', { class: 'body' }, h('div', { class: 'top' }, h('b', null, sp.title), sp.wild ? h('span', { class: 'badge wild' }, 'wildcard') : null),
+          h('div', { class: 'body' }, h('div', { class: 'top' }, h('b', null, sp.title), sp.wild ? h('span', { class: 'badge wild' }, 'surprise') : null),
             h('span', { class: 'desc', style: 'min-height:0' }, sp.note || sp.mood),
             h('div', { class: 'acts' },
               h('button', { class: 'btn' + (on ? ' lime' : ''), type: 'button', 'aria-pressed': String(on), onclick: () => pickIt(sp.id, on ? null : 'like') }, on ? '♥ Liked' : '♡ Like'),
               h('button', { class: 'btn', type: 'button', 'aria-label': (off ? 'Unskip ' : 'Skip ') + sp.title, onclick: () => pickIt(sp.id, off ? null : 'skip') }, off ? '↺' : '×'))));
-      })))) : h('div', { class: 'empty' }, 'No sketches yet. Start with 12 instant ones above: they take a second.'));
+      })))) : h('div', { class: 'empty' }, 'Quick first screens in different styles, made from how we read you. Like the ones that feel like you; only those become full sites.'));
 }
 
 async function renderCompare() {
   const ids = (new URLSearchParams(location.search).get('ids') || '').split(',').filter(Boolean).slice(0, 4);
   const main = $('main');
-  if (ids.length < 2) { fill(main, h('div', { class: 'empty' }, 'Pick two to four designs in the Library (Compare on each card).')); return; }
+  if (ids.length < 2) { fill(main, h('div', { class: 'empty' }, 'Pick two to four designs in Designs (⋯ → Add to compare).')); return; }
   const [lib, ...traits] = await Promise.all([api('/api/library'), ...ids.map((id) => api('/api/designs/' + encodeURIComponent(id) + '/traits').catch(() => ({ fonts: [], colors: [] })))]);
   const info = (id) => lib.designs.find((d) => d.id === id) || { id };
   state.mix = state.mix || { layout: ids[0], colors: ids[1] || ids[0], type: ids[0], signature: ids[ids.length - 1] };
   for (const k of Object.keys(state.mix)) if (!ids.includes(state.mix[k])) state.mix[k] = ids[0];
   const aspects = [['layout', 'Layout & structure'], ['colors', 'Colors'], ['type', 'Typography'], ['signature', 'Signature moment']];
   fill(main,
-    h('header', null, h('a', { href: '/studio' }, '← Library'), h('h1', { style: 'margin-top:6px' }, 'Compare, then mix'),
+    h('header', null, h('a', { href: '/studio?view=library' }, '← Designs'), h('h1', { style: 'margin-top:6px' }, 'Compare, then mix'),
       h('p', { class: 'sub' }, 'Pick one, or take the best part of each. A mix becomes a new design; the originals stay as they are.')),
     h('div', { class: 'cmp' }, ids.map((id, i) => {
       const d = info(id), t = traits[i];
@@ -500,7 +649,7 @@ async function renderCompare() {
       aspects.map(([k, label]) => h('div', { class: 'mixrow', role: 'radiogroup', 'aria-label': label + ' from' }, h('b', null, label),
         h('div', { class: 'row' }, ids.map((id) => h('button', { class: 'chip', type: 'button', role: 'radio', 'aria-checked': String(state.mix[k] === id), 'aria-pressed': String(state.mix[k] === id), onclick: () => { state.mix[k] = id; renderCompare(); } }, titleOf(info(id))))))),
       h('div', { class: 'row between' }, h('span', { class: 'sub', style: 'margin:0' }, 'New design: layout from ' + titleOf(info(state.mix.layout)) + ', colors from ' + titleOf(info(state.mix.colors)) + ', type from ' + titleOf(info(state.mix.type)) + ', signature from ' + titleOf(info(state.mix.signature)) + '.'),
-        h('button', { class: 'btn pri', type: 'button', onclick: async () => { try { const j = await api('/api/jobs', { mix: state.mix }); toast('Mix started as round ' + j.run + ', ready for your agent'); location.href = '/studio'; } catch (e) { toast(e.message); } } }, 'Build this mix'))));
+        h('button', { class: 'btn pri', type: 'button', onclick: async () => { try { const j = await api('/api/jobs', { mix: state.mix }); toast('Your mix is on the way'); location.href = '/studio?view=library'; } catch (e) { toast(e.message); } } }, 'Build this mix'))));
 }
 
 async function renderPublish() {
@@ -521,11 +670,11 @@ async function renderPublish() {
     } catch (e) { out.textContent = 'Not published: ' + e.message; }
   };
   fill(main,
-    h('header', null, h('h1', null, 'Publish your site'), h('p', { class: 'sub' }, 'Publishing never deletes anything. You can switch back to any earlier design or version later.')),
+    h('header', null, h('h1', null, 'Publish your site'), h('p', { class: 'sub' }, 'Check, then go live. You can change design and publish again any time.')),
     h('div', { class: 'cols' },
       h('div', { class: 'wide', style: 'display:flex;flex-direction:column;gap:16px' },
         h('section', { class: 'box', 'aria-label': 'Design' }, h('b', null, 'Design'),
-          h('div', { class: 'row' }, thumbBox(check.theme), h('div', null, h('div', { style: 'font-size:20px;font-weight:600' }, cur ? titleOf(cur) + (cur.latest ? ' · v' + cur.latest : '') : check.theme), h('a', { href: '/studio' }, 'Change in the Library')))),
+          h('div', { class: 'row' }, thumbBox(check.theme), h('div', null, h('div', { style: 'font-size:20px;font-weight:600' }, cur ? titleOf(cur) + (cur.latest ? ' · v' + cur.latest : '') : check.theme), h('a', { href: '/studio?view=library' }, 'Change design')))),
         h('section', { class: 'box', 'aria-label': 'Before it goes live' }, h('b', null, 'Before it goes live'),
           h('ul', { class: 'checks' }, check.items.map((i) => h('li', null, h('span', { class: i.level, 'aria-label': i.level }, icon[i.level]), h('span', null, i.text))))),
         h('section', { class: 'box', 'aria-label': 'Publish' }, h('b', null, check.url ? 'Publish to ' + check.url : 'Publish'),
@@ -588,8 +737,8 @@ async function renderContent() {
   const fileIn = h('input', { type: 'file', accept: '.pdf,.docx,.txt,.md,.zip', 'aria-label': 'Resume or LinkedIn export' });
   const status = h('span', { class: 'mono', role: 'status' });
   fill(main,
-    h('header', null, h('h1', null, 'Your content'), h('p', { class: 'sub' }, 'Everything your site says about you. Designs never change this; this never changes the design.')),
-    jobsOf(['content']),
+    youTabs('content'),
+    h('header', null, h('h1', null, 'Your content'), h('p', { class: 'sub' }, 'Everything your site says about you. Changing designs never changes this.')),
     h('div', { class: 'cols' },
       h('section', { class: 'box', 'aria-label': 'Import from GitHub' }, h('b', null, 'Import from GitHub'), h('p', { class: 'sub', style: 'margin:0' }, 'Adds your name, photo, bio and best repos. Never overwrites what you wrote.'),
         h('form', { class: 'row', onsubmit: async (e) => { e.preventDefault(); status.textContent = 'Importing…'; try { const r = await api('/api/content/github', { user: ghIn.value.trim() }); state.contentData = null; state.draft = null; toast('Imported ' + (r.added.length ? r.added.length + ' projects' : 'your profile')); refresh(); } catch (err) { status.textContent = err.message; } } }, ghIn, h('button', { class: 'btn', type: 'submit' }, 'Import'))),
@@ -601,8 +750,8 @@ async function renderContent() {
             const r = await fetch('/api/content/upload?name=' + encodeURIComponent(f.name), { method: 'POST', headers: { 'X-Folio': '1', 'Content-Type': f.type || 'application/octet-stream' }, body: f });
             const up = await r.json(); if (!r.ok) throw new Error(up.error);
             await api('/api/content/read', { files: [up.path] });
-            status.textContent = ''; toast('Uploaded. Ready for your agent to read'); refresh();
-          } catch (err) { status.textContent = err.message; } } }, 'Upload and send to my agent')), status)),
+            status.textContent = ''; toast('Uploaded. Your agent will read it'); refresh();
+          } catch (err) { status.textContent = err.message; } } }, 'Upload')), status)),
     data.errors.length ? h('div', { class: 'errs bad' }, h('b', null, 'Problems: '), data.errors.join(' · ')) : null,
     data.warnings.length ? h('div', { class: 'errs note' }, h('b', null, 'Suggestions: '), data.warnings.join(' · ')) : null,
     h('section', { class: 'box', 'aria-label': 'Basics' }, h('h2', null, 'Basics'),
@@ -620,35 +769,49 @@ async function renderContent() {
     }),
     h('section', { class: 'box', 'aria-label': 'Versions' }, h('b', null, 'Versions'), data.versions.length ? h('ol', { class: 'hist' }, data.versions.slice(0, 8).map((v, i) => h('li', null, h('b', { class: 'mono' }, 'v' + v.n), h('span', null, v.note, h('small', null, ago(v.at))),
       i === 0 ? h('span', { class: 'mono' }, 'current') : h('button', { class: 'btn', type: 'button', onclick: async () => { try { await api('/api/content/restore', { n: v.n }); state.contentData = null; state.draft = null; toast('Restored v' + v.n); refresh(); } catch (e) { toast(e.message); } } }, 'Restore')))) : h('p', { class: 'sub', style: 'margin:0' }, 'Your first save starts the history.')),
+    state.dirty ? null : nextBar('Content looks right?', 'Next: how we read you', '/studio?view=persona'),
     h('div', { class: 'savebar' }, h('b', null, state.dirty ? 'Unsaved changes' : 'All saved'),
       h('div', { class: 'row' },
         h('button', { class: 'btn', type: 'button', onclick: () => { state.draft = null; state.dirty = false; renderContent(); } }, 'Discard'),
         h('button', { class: 'btn lime', type: 'button', onclick: async () => { try { const r = await api('/api/content', { content: draft }); state.contentData = null; state.draft = null; state.dirty = false; toast('Saved as v' + r.version); renderContent(); } catch (e) { toast(e.message); } } }, 'Save'))));
 }
 
-async function refresh() {
-  try {
-    [state.jobs, state.runner] = await Promise.all([api('/api/jobs'), api('/api/runner').catch(() => null)]);
-    state.itemState = {};
-    for (const j of state.jobs) if (j.status === 'active') for (const i of j.items) state.itemState[i.theme] = i.state;
-    // Never redraw the form under someone's cursor: with unsaved edits, background updates wait.
-    if (view === 'content') { if (!state.dirty) { state.contentData = null; state.draft = null; await renderContent(); } else if (!$('main').childElementCount) await renderContent(); }
-    else if (view === 'persona') await renderPersona();
-    else if (view === 'explore') await renderExplore();
-    else if (view === 'compare') await renderCompare();
-    else if (view === 'publish') await renderPublish();
-    else if (params.get('d')) await renderDesign(params.get('d'));
-    else renderLibrary(await api('/api/library'));
-  } catch (e) { fill($('main'), h('div', { class: 'empty' }, 'Could not load: ' + e.message)); }
-  // Claims don't touch watched files, so poll gently while a round is running.
+async function refresh(background) {
+  // A background update never redraws under an open menu, dialog or unsaved form: it waits for the next tick.
+  const busy = dlg.open || document.querySelector('details.menu[open]');
+  if (!(background && busy)) {
+    try {
+      const [jobs, runner, progress] = await Promise.all([api('/api/jobs'), api('/api/runner').catch(() => null), api('/api/progress').catch(() => null)]);
+      state.jobs = jobs; state.runner = runner;
+      state.itemState = {};
+      for (const j of state.jobs) if (j.status === 'active') for (const i of j.items) state.itemState[i.theme] = i.state;
+      if (progress) paintSteps(progress);
+      state.progress = progress;
+      // Plain /studio opens where the person is in the flow: the first unfinished step.
+      if (bare && progress && !refresh.routed) {
+        refresh.routed = true;
+        const to = !progress.content ? 'content' : !progress.persona ? 'persona' : !progress.liked && !progress.designs ? 'explore' : null;
+        if (to) { location.replace('/studio?view=' + to); return; }
+      }
+      paintActivity();
+      if (view === 'content') { if (!state.dirty) { state.contentData = null; state.draft = null; await renderContent(); } else if (!$('main').childElementCount) await renderContent(); }
+      else if (view === 'persona') await renderPersona();
+      else if (view === 'explore') await renderExplore();
+      else if (view === 'compare') await renderCompare();
+      else if (view === 'publish') await renderPublish();
+      else if (params.get('d')) await renderDesign(params.get('d'));
+      else renderLibrary(await api('/api/library'));
+    } catch (e) { fill($('main'), h('div', { class: 'empty' }, 'Could not load: ' + e.message)); }
+  }
+  // Claims don't touch watched files, so poll gently while something is being made.
   clearTimeout(refresh.t);
-  if (state.jobs.some((j) => j.status === 'active') || state.runner?.running) refresh.t = setTimeout(refresh, state.runner?.running ? 2500 : 5000);
+  if (state.jobs.some((j) => j.status === 'active') || state.runner?.running) refresh.t = setTimeout(() => refresh(true), state.runner?.running ? 2500 : 5000);
 }
 refresh();
 // Designs landing from agents refresh the view in place (no full reload, so filters and selection stay).
 const es = new EventSource('/__folio/events');
 es.addEventListener('boot', (e) => { if (e.data !== window.__boot) location.reload(); });
-es.onmessage = () => refresh();
+es.onmessage = () => refresh(true);
 addEventListener('pageshow', (e) => { if (e.persisted) refresh(); });
 `;
 
@@ -661,18 +824,22 @@ export function studioPage({ boot }) {
 <div class="app">
   <nav class="side" aria-label="Folio">
     <div class="logo">✦ folio <span>studio</span></div>
-    <div class="nav">
-      <a href="/studio" data-view="library">Library</a>
-      <a href="/studio?view=content" data-view="content">Content</a>
-      <a href="/studio?view=persona" data-view="persona">Persona</a>
-      <a href="/studio?view=explore" data-view="explore">Explore</a>
-      <a href="/" target="_blank" rel="noopener">My site ↗</a>
-      <a href="/studio?view=publish" data-view="publish">Publish</a>
+    <div class="steps">
+      <a href="/studio?view=content" data-view="you"><i>1</i><span>You<small>content · how we read you</small></span></a>
+      <a href="/studio?view=explore" data-view="explore"><i>2</i><span>Explore<small>like the looks that fit</small></span></a>
+      <a href="/studio?view=library" data-view="library"><i>3</i><span>Designs<small>full sites · pick one</small></span></a>
+      <a href="/studio?view=publish" data-view="publish"><i>4</i><span>Publish<small>go live · identity kit</small></span></a>
+    </div>
+    <div id="activity"></div>
+    <div class="sidefoot">
+      <a href="/" target="_blank" rel="noopener">View my site ↗</a>
+      <button type="button" id="cleanup">Clean up…</button>
     </div>
   </nav>
   <main></main>
 </div>
 <div class="toast" role="status" aria-live="polite"></div>
+<dialog id="dlg"><div class="dbody"></div></dialog>
 <script>window.__boot=${JSON.stringify(boot)};${JS}</script>
 </body></html>`;
 }

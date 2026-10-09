@@ -7,7 +7,7 @@
 // Keys are relative paths with forward slashes; they never contain "..".
 
 import { existsSync } from 'node:fs';
-import { mkdir, readFile, writeFile, readdir, rename, open, unlink, stat } from 'node:fs/promises';
+import { mkdir, readFile, writeFile, readdir, rename, open, unlink, stat, rm } from 'node:fs/promises';
 import { randomBytes } from 'node:crypto';
 import { dirname, join, resolve, relative, isAbsolute } from 'node:path';
 
@@ -51,6 +51,13 @@ class FsNamespace {
     const tmp = `${file}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`;
     await writeFile(tmp, buffer);
     await rename(tmp, file);
+  }
+  // Permanently remove one file, or (recursive) a folder. The key is checked like every other key, and the
+  // namespace root itself can never be removed.
+  async remove(key, { recursive = false } = {}) {
+    const file = this.path(key);
+    if (file === this.root) throw new Error('refusing to remove the store root');
+    await rm(file, { recursive, force: true });
   }
   async readJSON(key, fallback = null) {
     const text = await this.readText(key);

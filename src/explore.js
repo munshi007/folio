@@ -84,3 +84,20 @@ export function tasteSummary(taste) {
   const dislikes = entries.filter(([, v]) => v < 0).sort((a, b) => a[1] - b[1]).slice(0, 3).map(([k]) => k);
   return { likes, dislikes };
 }
+
+// Delete a whole sketch round, and the likes/skips on it. (Learned taste is recomputed from what's left.)
+export async function deleteSketchRound(store, round) {
+  const n = Number(round);
+  if (!Number.isInteger(n) || n < 1) throw new Error('bad round');
+  return store.data.withLock('sketches', async () => {
+    const r = await store.data.readJSON(`sketches/${n}.json`, null);
+    if (!r) throw new Error(`no sketch round ${n}`);
+    await store.data.remove(`sketches/${n}.json`);
+    await store.data.withLock('picks', async () => {
+      const p = await readPicks(store);
+      for (const s of r.specs) { delete p.liked[s.id]; delete p.skipped[s.id]; }
+      await store.data.writeJSON('picks.json', p);
+    });
+    return { round: n, removed: r.specs.length };
+  });
+}
