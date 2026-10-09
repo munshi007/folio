@@ -50,6 +50,7 @@ ${c.b('Generate designs')}
   folio jobs [next [--json] | cancel <id>]        generation progress; agents claim the next design to make
   folio run [--model m] [--parallel n] [--max n]  do waiting jobs with your ANTHROPIC_API_KEY (no agent needed)
   folio kit [--theme t] [--out dir]               identity kit: link preview, LinkedIn/X banners, post, résumé PDF
+  folio bench [--n 6] | --measure a,b,c           folio vs a plain prompt (API key), or measure how different designs are
   folio pick <theme> [--as <name>]                keep a design (optionally rename it), set it in folio.json
   ${c.dim('watch them land live: folio dev → http://localhost:4321/__folio/gallery')}
 
@@ -441,6 +442,22 @@ async function main() {
       return cmdJobs(args, config);
     case 'run':
       return cmdRun(args, config);
+    case 'bench': {
+      const bench = await import('../src/bench.js');
+      if (typeof args.measure === 'string') {
+        const names = args.measure.split(',').map((x) => x.trim()).filter(Boolean);
+        const designs = await bench.measureDesigns(config, names);
+        const s = bench.summarize(designs);
+        if (args.json) return console.log(JSON.stringify({ designs, summary: s }, null, 2));
+        for (const d of designs) console.log(`  ${c.m(d.name.padEnd(24))} ${d.broken ? c.r(d.broken) : `${d.font.padEnd(22)} bg ${String(d.bg).padEnd(6)} hue ${String(d.accentHue ?? '–').padEnd(4)} ${d.errors ? c.r(`${d.errors} errors`) : c.g('checks ok')}${d.sideways ? c.r(' · phone scrolls sideways') : ''}`}`);
+        console.log(`\n  difference: avg ${c.b(s.meanDistance)} · closest pair ${c.b(s.minDistance)} (${(s.closestPair || []).join(' ~ ')}) · ${s.fonts} fonts · ${s.nearDuplicates} near-duplicates`);
+        return;
+      }
+      const { DEFAULT_MODEL } = await import('../src/runner.js');
+      const r = await bench.runBench({ config, apiKey: process.env.ANTHROPIC_API_KEY, model: typeof args.model === 'string' ? args.model : process.env.FOLIO_MODEL || DEFAULT_MODEL, n: Math.min(12, Math.max(2, Number(args.n) || 6)), out: typeof args.out === 'string' ? args.out : undefined, log: (m) => console.log(`  ${m}`) });
+      console.log(`\n${bench.report(r)}\n  Saved in ${r.outDir}`);
+      return;
+    }
     case 'kit': {
       const { makeKit } = await import('../src/kit.js');
       console.log(`  ${c.b('folio kit')} · your design on everything around your site`);

@@ -838,3 +838,40 @@ test('kit renders banners, post and résumé from the live design', { skip: !fin
   assert.equal(png.readUInt32BE(16), 1584);
   assert.equal(png.readUInt32BE(20), 396);
 });
+
+// ---- benchmark ---------------------------------------------------------------------------------
+import { distance, summarize, runBench } from '../src/bench.js';
+
+test('bench distance: identical is 0, near-duplicates are counted', () => {
+  const map = Array.from({ length: 320 }, (_, i) => (i % 2 ? 1 : 0.9));
+  const a = { name: 'a', font: 'Inter', bg: 0.9, accentHue: 220, map, errors: 0, contrast: 7 };
+  assert.equal(distance(a, { ...a }), 0);
+  const far = { name: 'c', font: 'VT323', bg: 0.05, accentHue: 40, map: map.map((v, i) => (i % 2 ? 0 : 0.05)), errors: 0, contrast: 7 };
+  assert.ok(distance(a, far) > 0.8);
+  const s = summarize([a, { ...a, name: 'b' }, far]);
+  assert.equal(s.nearDuplicates, 1);
+  assert.deepEqual(s.closestPair, ['a', 'b']);
+  assert.equal(s.fonts, 2);
+});
+
+test('bench A/B runs both arms in a throwaway project and writes a report', { skip: !findChrome() && 'no Chrome' }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-bench-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  const sources = ['bento', 'terminal', 'blueprint'];
+  let k = 0;
+  const fetchImpl = async (url, init) => {
+    const body = JSON.parse(init.body);
+    const plain = body.system.startsWith('Write a personal portfolio');
+    const from = plain ? 'editorial' : sources[k++ % sources.length];
+    const name = plain ? 'x' : body.messages[0].content.match(/themes\/(g\d+-\d+-[a-z-]+)\.js/)[1];
+    const src = (await themeSource(from, name, dir)).replace(/description: '[^']*'/, `description: 'from ${from}'`);
+    return new Response(JSON.stringify({ content: [{ type: 'text', text: '```js\n' + src + '\n```' }] }), { status: 200 });
+  };
+  const r = await runBench({ config: join(dir, 'folio.json'), apiKey: 'sk-test', n: 3, fetchImpl, log: () => {} });
+  assert.equal(r.summary.plain.designs, 3);
+  assert.equal(r.summary.plain.nearDuplicates, 3, 'three copies of the same design');
+  assert.equal(r.summary.folio.nearDuplicates, 0);
+  assert.ok(r.summary.folio.meanDistance > r.summary.plain.meanDistance);
+  assert.match(readFileSync(join(r.outDir, 'REPORT.md'), 'utf8'), /\| Near-duplicate pairs \| 3 \| 0 \|/);
+  assert.ok(!existsSync(join(dir, 'themes')), "the person's project is untouched");
+});
