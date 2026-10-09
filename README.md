@@ -94,6 +94,10 @@ npx folio-site deploy                # publish to GitHub Pages
 
 Without an agent you can't generate designs (that's the agent's job), but you get four solid built-in themes, the live preview, and everything else.
 
+## Your design, everywhere
+
+`folio kit` (or Studio → Publish → Identity kit) carries your chosen design onto everything around the site: a link preview (`og.png`, used automatically by `folio build` when `url` is set), a LinkedIn banner, an X header, an announcement post and a one-page résumé PDF. Fonts and colours are read from your rendered site, so it works for any design, including ones your agent made.
+
 ## No coding agent? Use your API key
 
 ```bash
@@ -153,6 +157,7 @@ For a quick start without generating, four hand-tuned themes ship with folio: **
 | `folio persona [write <file>]` · `folio refs [add <file>]` · `folio sketch auto\|add\|show` | Persona card, reference board, first-screen sketches (agents write; you correct in Studio) |
 | `folio jobs [next \| cancel <id>]` | Generation progress; agents claim the next design or task |
 | `folio run` | Build waiting designs (and persona, sketches, resume reading) with your own `ANTHROPIC_API_KEY`, no agent needed |
+| `folio kit` | Identity kit in your design: link preview, LinkedIn and X banners, announcement post, one-page résumé PDF |
 | `folio mcp` | Run as an MCP server for AI apps |
 | `folio dev` | The same local server without opening a browser (Studio at `/studio`, your site at `/`) |
 | `folio build [--out dist]` | Render the static site |

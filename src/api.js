@@ -31,6 +31,7 @@ import { readContent, writeContent, restoreContent, importGitHub, saveUpload, co
 import { createContentJob } from './jobs.js';
 import { KEEPS } from './generate.js';
 import { fileURLToPath } from 'node:url';
+import { join } from 'node:path';
 
 // The exact folio that's running, so briefs tell agents a command that works on this machine.
 const CLI = `node "${fileURLToPath(new URL('../bin/folio.js', import.meta.url))}"`;
@@ -73,6 +74,7 @@ async function themeFromSource(id, source) {
 // One runner per project at a time, inside this server process. The key stays in the server's environment;
 // the page only learns whether one is set.
 const runners = new Map();
+const kitBusy = new Set();
 function runnerState(base) {
   const r = runners.get(base);
   return { available: Boolean(process.env.ANTHROPIC_API_KEY), running: Boolean(r?.running), log: r?.log.slice(-12) ?? [], result: r?.result ?? null };
@@ -81,7 +83,7 @@ function runnerState(base) {
 export async function handleApi(req, res, url, ctx) {
   const { store, configPath, base, port } = ctx;
   const path = url.pathname;
-  if (!path.startsWith('/api/') && !path.startsWith('/preview/') && !path.startsWith('/sketch/')) return false;
+  if (!path.startsWith('/api/') && !path.startsWith('/preview/') && !path.startsWith('/sketch/') && !path.startsWith('/kit/')) return false;
   if (!localHost(req)) {
     send(res, 403, { error: 'forbidden host' });
     return true;
@@ -276,6 +278,33 @@ export async function handleApi(req, res, url, ctx) {
       if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
       if (!validJobId(jm[1])) return send(res, 400, { error: 'bad job id' }), true;
       return send(res, 200, await cancelJob(store, base, jm[1])), true;
+    }
+
+    // ---- identity kit ----
+    if (path.startsWith('/kit/') && req.method === 'GET') {
+      const { KIT_FILES } = await import('./kit.js');
+      const name = decodeURIComponent(path.slice(5));
+      if (!KIT_FILES.includes(name)) return send(res, 404, { error: 'not found' }), true;
+      const { readFile: rf } = await import('node:fs/promises');
+      const data = await rf(join(base, 'folio-kit', name)).catch(() => null);
+      if (!data) return send(res, 404, { error: 'not made yet' }), true;
+      res.writeHead(200, { 'Content-Type': name.endsWith('.pdf') ? 'application/pdf' : 'image/png', 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
+      res.end(data);
+      return true;
+    }
+    if (path === '/api/kit') {
+      const { listKit, makeKit } = await import('./kit.js');
+      const { findChrome } = await import('./shot.js');
+      if (req.method === 'GET') return send(res, 200, { files: await listKit(base), chrome: Boolean(findChrome()), making: kitBusy.has(base) }), true;
+      if (!writeAllowed(req, port)) return send(res, 403, { error: 'forbidden' }), true;
+      if (kitBusy.has(base)) return send(res, 409, { error: 'already making your kit' }), true;
+      kitBusy.add(base);
+      try {
+        const r = await makeKit({ config: configPath });
+        return send(res, 200, { files: r.files }), true;
+      } finally {
+        kitBusy.delete(base);
+      }
     }
 
     // ---- runner (API key) ----

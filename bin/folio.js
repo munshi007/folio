@@ -49,6 +49,7 @@ ${c.b('Generate designs')}
                                                   change two big things each [--count 3]
   folio jobs [next [--json] | cancel <id>]        generation progress; agents claim the next design to make
   folio run [--model m] [--parallel n] [--max n]  do waiting jobs with your ANTHROPIC_API_KEY (no agent needed)
+  folio kit [--theme t] [--out dir]               identity kit: link preview, LinkedIn/X banners, post, résumé PDF
   folio pick <theme> [--as <name>]                keep a design (optionally rename it), set it in folio.json
   ${c.dim('watch them land live: folio dev → http://localhost:4321/__folio/gallery')}
 
@@ -440,6 +441,14 @@ async function main() {
       return cmdJobs(args, config);
     case 'run':
       return cmdRun(args, config);
+    case 'kit': {
+      const { makeKit } = await import('../src/kit.js');
+      console.log(`  ${c.b('folio kit')} · your design on everything around your site`);
+      const r = await makeKit({ config, out: typeof args.out === 'string' ? args.out : undefined, theme: typeof args.theme === 'string' ? args.theme : undefined, log: (f) => console.log(`  ${c.g('✓')} ${f}`) });
+      const isDefault = r.outDir === join(dirname(config), 'folio-kit');
+      console.log(`\n  Saved in ${c.b(isDefault ? relative(process.cwd(), r.outDir) || '.' : r.outDir)}.${isDefault ? c.dim(' folio build now uses og.png as your link preview (set "url" in folio.json).') : ''}`);
+      return;
+    }
     case 'persona':
       return cmdPersona(args, config);
     case 'mcp':

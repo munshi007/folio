@@ -114,6 +114,12 @@ export async function launch(bin) {
       const { data } = await send('Page.captureScreenshot', { format: 'png' });
       return Buffer.from(data, 'base64');
     },
+    async pdf() {
+      await send('Emulation.setEmulatedMedia', { media: 'print' });
+      const { data } = await send('Page.printToPDF', { printBackground: true, preferCSSPageSize: true });
+      await send('Emulation.setEmulatedMedia', { media: '' });
+      return Buffer.from(data, 'base64');
+    },
     async close() {
       try {
         ws.close();

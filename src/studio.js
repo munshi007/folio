@@ -127,6 +127,10 @@ aside.panel{flex:1 1 340px;min-width:0;max-width:440px;background:var(--card);bo
 .errs{border-radius:12px;padding:12px 14px;font-size:14px}
 .errs.bad{background:#fde8e4;color:#8a1c0c}.errs.note{background:#fff6e0;color:#6b4a00}
 .savebar{position:sticky;bottom:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;padding:12px 16px;border-radius:14px;background:var(--ink);color:var(--bg)}
+.kit{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:14px;align-items:end}
+.kit a{display:flex;flex-direction:column;gap:6px;text-decoration:none;color:var(--ink);font-size:13.5px}
+.kit img{width:100%;height:auto;max-height:260px;object-fit:contain;object-position:left top;border-radius:10px;border:1px solid var(--line);background:var(--card)}
+.kit .pdf{aspect-ratio:16/10;display:grid;place-items:center;border-radius:10px;border:1px solid var(--line);background:var(--card);font-weight:600}
 .toast{position:fixed;left:0;right:0;margin:0 auto;width:max-content;max-width:calc(100vw - 32px);bottom:24px;background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;font-weight:500;opacity:0;transform:translateY(16px);transition:all .25s;pointer-events:none}
 .toast.on{opacity:1;transform:none}
 @media (max-width:760px){main{padding:24px 16px 60px}nav.side{max-width:none;border-right:0;border-bottom:1px solid var(--line)}}
@@ -500,7 +504,7 @@ async function renderCompare() {
 }
 
 async function renderPublish() {
-  const [check, lib] = await Promise.all([api('/api/publish/check'), api('/api/library')]);
+  const [check, lib, kit] = await Promise.all([api('/api/publish/check'), api('/api/library'), api('/api/kit').catch(() => ({ files: [], chrome: false }))]);
   const main = $('main');
   const cur = lib.designs.find((d) => d.current);
   const icon = { ok: '✓', warn: '!', error: '✗' };
@@ -530,11 +534,27 @@ async function renderPublish() {
             h('button', { class: 'btn pri', type: 'button', disabled: !check.canPublish, onclick: () => go('github-pages') }, 'Publish to GitHub Pages'),
             h('button', { class: 'btn', type: 'button', onclick: () => go('files') }, 'Build files instead')),
           out)),
+      h('div', { style: 'display:flex;flex-direction:column;gap:16px' },
+      kitBox(kit),
       h('section', { class: 'box', 'aria-label': 'History' }, h('b', null, 'Publish history'),
         lib.publishes.length ? h('ol', { class: 'hist' }, lib.publishes.map((pb, i) => h('li', null, h('b', { class: 'mono' }, pb.version ? 'v' + pb.version : '·'),
           h('span', null, pb.design, h('small', null, ago(pb.at) + (pb.url ? ' · ' + pb.url : ''))),
           i === 0 ? h('span', { class: 'mono' }, 'live') : h('button', { class: 'btn', type: 'button', onclick: () => useDesign(pb.design).then(() => toast('Your site uses ' + pb.design + ' again. Publish to make it live')) }, 'Use again')))) :
-          h('p', { class: 'sub', style: 'margin:0' }, 'Nothing published yet.'))));
+          h('p', { class: 'sub', style: 'margin:0' }, 'Nothing published yet.')))));
+}
+const KIT_LABELS = { 'og.png': 'Link preview', 'linkedin-banner.png': 'LinkedIn banner', 'x-header.png': 'X header', 'post.png': 'Announcement post', 'resume.pdf': 'Résumé (PDF)' };
+function kitBox(kit) {
+  const stamp = Date.now();
+  const make = async (btn) => {
+    btn.disabled = true; btn.textContent = 'Making your kit…';
+    try { await api('/api/kit', {}); toast('Kit ready, in your design'); refresh(); } catch (e) { toast(e.message); btn.disabled = false; btn.textContent = 'Try again'; }
+  };
+  return h('section', { class: 'box', 'aria-label': 'Identity kit' }, h('b', null, 'Identity kit'),
+    h('p', { class: 'sub', style: 'margin:0' }, 'Your design on everything around your site: link preview, LinkedIn and X banners, a post, a one-page résumé. Remake it after you change designs.'),
+    kit.files.length ? h('div', { class: 'kit' }, kit.files.map((f) => h('a', { href: '/kit/' + f, target: '_blank', rel: 'noopener', download: f },
+      f.endsWith('.pdf') ? h('span', { class: 'pdf' }, 'PDF') : h('img', { src: '/kit/' + f + '?t=' + stamp, alt: KIT_LABELS[f] }), KIT_LABELS[f]))) : null,
+    kit.chrome ? h('button', { class: 'btn' + (kit.files.length ? '' : ' pri'), type: 'button', disabled: kit.making, onclick: (e) => make(e.currentTarget) }, kit.files.length ? 'Remake kit' : 'Make my kit')
+      : h('p', { class: 'sub', style: 'margin:0' }, 'Needs Chrome or Chromium installed.'));
 }
 function thumbBox(id) { const t = thumb(id); t.style.width = '220px'; t.style.borderRadius = '10px'; t.style.border = '1px solid var(--line)'; return t; }
 

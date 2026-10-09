@@ -26,11 +26,12 @@ function localAssets(p) {
   return [...new Set(paths.filter((u) => !/^[a-z][a-z0-9+.-]*:/i.test(u) && !u.startsWith('//')))];
 }
 
-export async function renderHtml(raw, { theme, baseDir = process.cwd(), pure = false } = {}) {
+export async function renderHtml(raw, { theme, baseDir = process.cwd(), pure = false, ogImage = null } = {}) {
   const { errors, warnings } = validate(raw);
   if (errors.length) throw new FolioError(`folio.json has problems:\n  - ${errors.join('\n  - ')}`);
   const p = normalize(raw);
   if (theme) p.theme = theme;
+  if (ogImage) p.ogImage = ogImage;
   // pure: show the theme exactly as designed (gallery, design reviews), ignoring the user's mode/font overrides.
   if (pure) p.style = { ...p.style, mode: 'auto', font: 'theme' };
   const t = await loadTheme(p.theme, baseDir);
@@ -57,13 +58,17 @@ export async function build({ config = 'folio.json', out = 'dist', theme, pure =
   const configPath = resolve(config);
   const outDir = resolve(out);
   const raw = await loadConfig(configPath);
-  const { html, profile, warnings } = await renderHtml(raw, { theme, baseDir: dirname(configPath), pure });
+  // An identity kit's link preview (folio kit) becomes the site's og:image.
+  const og = join(dirname(configPath), 'folio-kit', 'og.png');
+  const ogImage = existsSync(og) && resolve(outDir) !== resolve(dirname(configPath), '.folio', 'kit', 'site') ? 'og.png' : null;
+  const { html, profile, warnings } = await renderHtml(raw, { theme, baseDir: dirname(configPath), pure, ogImage });
 
   await assertSafeOutDir(outDir, dirname(configPath));
   await rm(outDir, { recursive: true, force: true });
   await mkdir(outDir, { recursive: true });
   await writeFile(join(outDir, 'index.html'), html);
   await writeFile(join(outDir, '.nojekyll'), '');
+  if (ogImage) await copyFile(og, join(outDir, 'og.png'));
 
   const base = dirname(configPath);
   const missing = [];

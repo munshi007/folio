@@ -802,3 +802,39 @@ test('runner builds designs and a persona with a model, feeding errors back', as
   assert.equal((await readPersona(store)).headline, 'Makes slow things fast');
   await assert.rejects(runJobs({ store, base: dir, configPath: cfg, apiKey: '' }), /ANTHROPIC_API_KEY/);
 });
+
+// ---- identity kit ----------------------------------------------------------------------------
+import { makeKit } from '../src/kit.js';
+import { findChrome } from '../src/shot.js';
+
+test('kit og.png becomes the link preview only when the site url is known', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-og-'));
+  mkdirSync(join(dir, 'folio-kit'));
+  writeFileSync(join(dir, 'folio-kit', 'og.png'), 'png');
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify({ ...example, url: 'https://maya.dev/site' }));
+  let r = await build({ config: join(dir, 'folio.json'), out: join(dir, 'dist') });
+  let html = readFileSync(join(r.outDir, 'index.html'), 'utf8');
+  assert.match(html, /og:image" content="https:\/\/maya\.dev\/site\/og\.png"/);
+  assert.match(html, /summary_large_image/);
+  assert.ok(existsSync(join(r.outDir, 'og.png')));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  r = await build({ config: join(dir, 'folio.json'), out: join(dir, 'dist') });
+  html = readFileSync(join(r.outDir, 'index.html'), 'utf8');
+  assert.doesNotMatch(html, /og\.png|summary_large_image/);
+});
+
+test('kit renders banners, post and résumé from the live design', { skip: !findChrome() && 'no Chrome' }, async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'folio-kit-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify({ ...example, theme: 'blueprint', name: 'Maya <b>Okafor</b>' }));
+  const r = await makeKit({ config: join(dir, 'folio.json') });
+  assert.deepEqual(r.files, ['og.png', 'linkedin-banner.png', 'x-header.png', 'post.png', 'resume.pdf']);
+  assert.match(r.tokens.display, /IBM Plex/);
+  const [cr, cg, cb] = r.tokens.accent.match(/\d+/g).map(Number);
+  assert.ok(Math.max(cr, cg, cb) - Math.min(cr, cg, cb) > 60, `accent is a real colour, not ink: ${r.tokens.accent}`);
+  assert.equal(readFileSync(join(r.outDir, 'resume.pdf')).subarray(0, 4).toString(), '%PDF');
+  const banner = readFileSync(join(dir, '.folio', 'kit', 'linkedin-banner.html'), 'utf8');
+  assert.match(banner, /Maya &lt;b&gt;Okafor&lt;\/b&gt;/, 'names are escaped');
+  const png = readFileSync(join(r.outDir, 'linkedin-banner.png'));
+  assert.equal(png.readUInt32BE(16), 1584);
+  assert.equal(png.readUInt32BE(20), 396);
+});

@@ -16,6 +16,8 @@ export function page(p, { fonts = '', css = '', body = '', script = '', bg = '#f
   const description = (p.about || p.headline || `${p.name}'s portfolio`).replace(/\s+/g, ' ').slice(0, 180);
   const image = safeUrl(p.avatar);
   const absImage = /^https?:/.test(image) ? image : p.url && image ? new URL(image, p.url).href : '';
+  // Link previews need an absolute URL, so the kit's og.png is only advertised when the site's url is known.
+  const ogImage = p.ogImage && p.url ? new URL(p.ogImage, p.url.endsWith('/') ? p.url : `${p.url}/`).href : '';
 
   // Theme CSS, then folio.json overrides (they come last so they win), then the badge.
   // style.mode then rewrites every prefers-color-scheme block in one pass.
@@ -58,8 +60,8 @@ ${p.url ? `<link rel="canonical" href="${attrUrl(p.url)}">` : ''}
 <meta property="og:type" content="profile">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
-${absImage ? `<meta property="og:image" content="${esc(absImage)}">` : ''}
-<meta name="twitter:card" content="summary">
+${ogImage || absImage ? `<meta property="og:image" content="${esc(ogImage || absImage)}">` : ''}
+${ogImage ? '<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">\n<meta name="twitter:card" content="summary_large_image">' : '<meta name="twitter:card" content="summary">'}
 ${image ? `<link rel="icon" href="${attrUrl(image)}">` : ''}
 ${fonts || font ? `<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>` : ''}
 ${fonts && !font ? `<link rel="stylesheet" href="${esc(fonts)}">` : ''}
