@@ -4,6 +4,8 @@
 
 **Six designers. One you.**
 
+[![test](https://github.com/munshi007/folio/actions/workflows/test.yml/badge.svg)](https://github.com/munshi007/folio/actions/workflows/test.yml) [![npm](https://img.shields.io/npm/v/folio-site)](https://www.npmjs.com/package/folio-site) [![MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
 folio reads who you are from your resume and GitHub, shows you a dozen quick sketches, and builds the ones you like into **real, genuinely different portfolio sites**. Pick one, refine it, publish free on GitHub Pages, and take the look everywhere: LinkedIn banner, link previews, résumé PDF.
 
 ```bash
@@ -179,6 +181,10 @@ folio shot --theme mine                 # see it on desktop and phone
 ```
 
 The design process the agent follows (brief, directions, critique rubric, banned generic-AI patterns) is in [`skills/folio/DESIGN.md`](skills/folio/DESIGN.md), and the generation flow in [`skills/folio/GENERATE.md`](skills/folio/GENERATE.md). To ship a design as a built-in, add it to `themes/index.js` and run `npm test`, which runs the same checks on every theme.
+
+## Contributing
+
+New design directions, themes and sketch layouts are the easiest way in. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 

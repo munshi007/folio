@@ -15,7 +15,12 @@ export async function launch(bin) {
   const profile = await mkdtemp(join(tmpdir(), 'folio-chrome-'));
   const proc = spawn(
     bin,
-    ['--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--hide-scrollbars', '--allow-file-access-from-files', 'about:blank'],
+    [
+      '--headless=new', '--remote-debugging-port=0', `--user-data-dir=${profile}`, '--no-first-run', '--no-default-browser-check', '--disable-gpu', '--hide-scrollbars', '--allow-file-access-from-files',
+      // CI runners (Ubuntu 24.04) block the namespaces Chrome's sandbox needs; only there, run without it.
+      ...(process.env.CI ? ['--no-sandbox'] : []),
+      'about:blank',
+    ],
     { stdio: 'ignore' },
   );
   const portFile = join(profile, 'DevToolsActivePort');
