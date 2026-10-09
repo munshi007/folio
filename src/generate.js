@@ -7,22 +7,29 @@ import { mkdir, readFile, readdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { createHash } from 'node:crypto';
 import { themeSource, loadTheme } from './themes.js';
+import { personaWeights } from './sketch.js';
 
 // ---- The design space -------------------------------------------------------------------------
 
 export const DIRECTIONS = [
-  { id: 'swiss', name: 'Swiss / International', fonts: ['Schibsted Grotesk', 'Familjen Grotesk'], note: 'strict grid, flush-left, black/white + one loud color, big numerals as structure', tags: ['engineer', 'design', 'minimal'] },
-  { id: 'editorial', name: 'Editorial magazine', fonts: ['Newsreader', 'Instrument Sans'], note: 'warm paper, pull-quote about, drop cap, contents-page project list', tags: ['writer', 'research', 'product', 'design'] },
-  { id: 'blueprint', name: 'Technical blueprint', fonts: ['IBM Plex Mono', 'IBM Plex Sans'], note: 'drafting grid, title block, FIG. labels, spec tables', tags: ['infra', 'data', 'ml', 'hardware', 'backend'] },
-  { id: 'data', name: 'Data-native', fonts: ['JetBrains Mono', 'DM Sans'], note: 'numbers as the hero, small multiples, CSS/SVG charts drawn from their real data', tags: ['data', 'ml', 'analytics'] },
-  { id: 'brutalist', name: 'Brutalist', fonts: ['Archivo Black', 'Space Mono'], note: 'raw borders, no rounding, system-blue links, hard shadows, dense blocks', tags: ['indie', 'creative', 'frontend'] },
-  { id: 'archive', name: 'Archive / index', fonts: ['Instrument Serif', 'Geist Mono'], note: 'everything is a catalog row: № · title · year · type, filterable', tags: ['many-projects', 'design', 'research'] },
-  { id: 'paper', name: 'Academic paper', fonts: ['Source Serif 4', 'Source Sans 3'], note: 'single column, abstract-style about, numbered references, small caps', tags: ['research', 'phd', 'ml'] },
-  { id: 'soft', name: 'Soft / organic', fonts: ['Bricolage Grotesque', 'Figtree'], note: 'warm pastels, generous whitespace, rounded shapes, grain texture', tags: ['product', 'ux', 'student', 'education'] },
-  { id: 'retro-os', name: 'Retro desktop OS', fonts: ['VT323', 'IBM Plex Mono'], note: 'windows with title bars, a dock or menu bar, projects as files/folders', tags: ['systems', 'security', 'frontend', 'creative'] },
-  { id: 'zine', name: 'Zine / collage', fonts: ['Bagel Fat One', 'Young Serif'], note: '2–3 riso ink colors, overlapping blocks, rotated sticker labels', tags: ['creative', 'community', 'student'] },
-  { id: 'cinematic', name: 'Cinematic dark', fonts: ['Syne', 'Hanken Grotesk'], note: 'near-black, huge cropped type, film-credit career, slow reveals', tags: ['frontend', 'creative', 'ml', 'product'] },
-  { id: 'kinetic', name: 'Kinetic type', fonts: ['Unbounded', 'Manrope'], note: 'type is the image: oversized, stretched, marquee lines, scroll-driven weight', tags: ['frontend', 'design', 'creative'] },
+  { id: 'swiss', name: 'Swiss / International', fonts: ['Schibsted Grotesk', 'Familjen Grotesk'], note: 'strict grid, flush-left, black/white + one loud color, big numerals as structure', tags: ['engineer', 'design', 'minimal'], mood: ['light', 'sleek', 'bold', 'sans'] },
+  { id: 'editorial', name: 'Editorial magazine', fonts: ['Newsreader', 'Instrument Sans'], note: 'warm paper, pull-quote about, drop cap, contents-page project list', tags: ['writer', 'research', 'product', 'design'], mood: ['light', 'crafted', 'calm', 'serif', 'editorial', 'warm'] },
+  { id: 'blueprint', name: 'Technical blueprint', fonts: ['IBM Plex Mono', 'IBM Plex Sans'], note: 'drafting grid, title block, FIG. labels, spec tables', tags: ['infra', 'data', 'ml', 'hardware', 'backend'], mood: ['light', 'tech', 'mono', 'crafted', 'calm'] },
+  { id: 'data', name: 'Data-native', fonts: ['JetBrains Mono', 'DM Sans'], note: 'numbers as the hero, small multiples, CSS/SVG charts drawn from their real data', tags: ['data', 'ml', 'analytics'], mood: ['sleek', 'tech', 'mono', 'calm'] },
+  { id: 'brutalist', name: 'Brutalist', fonts: ['Archivo Black', 'Space Mono'], note: 'raw borders, no rounding, system-blue links, hard shadows, dense blocks', tags: ['indie', 'creative', 'frontend'], mood: ['bold', 'colorful', 'mono'] },
+  { id: 'archive', name: 'Archive / index', fonts: ['Instrument Serif', 'Geist Mono'], note: 'everything is a catalog row: № · title · year · type, filterable', tags: ['many-projects', 'design', 'research'], mood: ['light', 'calm', 'editorial', 'serif'] },
+  { id: 'paper', name: 'Academic paper', fonts: ['Source Serif 4', 'Source Sans 3'], note: 'single column, abstract-style about, numbered references, small caps', tags: ['research', 'phd', 'ml'], mood: ['light', 'calm', 'serif', 'editorial'] },
+  { id: 'soft', name: 'Soft / organic', fonts: ['Bricolage Grotesque', 'Figtree'], note: 'warm pastels, generous whitespace, rounded shapes, grain texture', tags: ['product', 'ux', 'student', 'education'], mood: ['light', 'warm', 'soft', 'crafted', 'colorful'] },
+  { id: 'retro-os', name: 'Retro desktop OS', fonts: ['VT323', 'IBM Plex Mono'], note: 'windows with title bars, a dock or menu bar, projects as files/folders', tags: ['systems', 'security', 'frontend', 'creative'], mood: ['playful', 'mono', 'tech', 'crafted'] },
+  { id: 'zine', name: 'Zine / collage', fonts: ['Bagel Fat One', 'Young Serif'], note: '2–3 riso ink colors, overlapping blocks, rotated sticker labels', tags: ['creative', 'community', 'student'], mood: ['colorful', 'playful', 'crafted', 'bold', 'hand', 'warm'] },
+  { id: 'cinematic', name: 'Cinematic dark', fonts: ['Syne', 'Hanken Grotesk'], note: 'near-black, huge cropped type, film-credit career, slow reveals', tags: ['frontend', 'creative', 'ml', 'product'], mood: ['dark', 'bold', 'sleek'] },
+  { id: 'kinetic', name: 'Kinetic type', fonts: ['Unbounded', 'Manrope'], note: 'type is the image: oversized, stretched, marquee lines, scroll-driven weight', tags: ['frontend', 'design', 'creative'], mood: ['bold', 'colorful', 'sleek', 'playful'] },
+  { id: 'bauhaus', name: 'Bauhaus geometry', fonts: ['League Spartan', 'Work Sans'], note: 'primary-colour blocks as structure, circle/square/triangle as the only ornament, function-first grid', tags: ['engineer', 'design', 'data', 'infra'], mood: ['light', 'colorful', 'bold', 'crafted', 'sans'] },
+  { id: 'olympic', name: 'Olympic system', fonts: ['Hanken Grotesk', 'Hanken Grotesk'], note: 'Munich-72 style: friendly light palette (sky, green, orange), strict grid, pictograms built from a few angles, one family in many weights', tags: ['engineer', 'product', 'data'], mood: ['light', 'colorful', 'sleek', 'warm', 'sans'] },
+  { id: 'transit', name: 'Transit map', fonts: ['Overpass', 'Overpass Mono'], note: 'career and projects as coloured lines and stations at 45°/90°, interchanges for overlaps, a legend instead of a nav', tags: ['data', 'infra', 'backend', 'ml'], mood: ['light', 'colorful', 'crafted', 'tech'] },
+  { id: 'product', name: 'Product launch page', fonts: ['Geist', 'Geist Mono'], note: 'light, crisp product-site polish: hero claim, feature cards that are projects, a changelog for the career, real UI states', tags: ['product', 'frontend', 'ml', 'engineer'], mood: ['light', 'sleek', 'calm', 'sans'] },
+  { id: 'field-guide', name: 'Field guide / specimen plates', fonts: ['Fraunces', 'Commissioner'], note: 'each project a labelled specimen plate with Latin-style captions, hand-drawn rules, warm paper and ink colours', tags: ['research', 'education', 'creative', 'data'], mood: ['light', 'crafted', 'warm', 'serif', 'hand'] },
+  { id: 'lab-notebook', name: 'Lab notebook', fonts: ['Caveat', 'IBM Plex Mono'], note: 'grid paper, margin notes in handwriting, taped-in results, experiments and their evidence', tags: ['research', 'ml', 'data', 'student'], mood: ['light', 'crafted', 'warm', 'hand', 'tech', 'playful'] },
 ];
 
 export const LAYOUTS = [
@@ -109,20 +116,38 @@ export function profileTags(p) {
   return [...tags];
 }
 
-export function makeBriefs(p, { count = 6, seed = Date.now() } = {}) {
+// Directions are scored three ways: who they are (job-title keywords), what their persona says they like
+// (taste answers, avoid list, dials: the same weights sketches use), and freshness (a direction from the
+// last round is pushed down hard, older ones a little), so every round shows something new.
+export function makeBriefs(p, { count = 6, seed = Date.now(), persona = null, used = new Map() } = {}) {
   const rand = rng(seed);
   const tags = profileTags(p);
-  // Directions that fit the person come first, but at least a third of the set is a wildcard.
-  const scored = shuffle(DIRECTIONS, rand).map((d) => ({ d, fit: d.tags.filter((t) => tags.includes(t)).length + rand() * 0.9 }));
-  const fits = scored.filter((x) => x.fit >= 1).sort((a, b) => b.fit - a.fit).map((x) => x.d);
-  const wild = shuffle(scored.filter((x) => x.fit < 1).map((x) => x.d), rand);
-  const nFit = Math.min(fits.length, Math.ceil(count * 0.66));
-  const directions = [...fits.slice(0, nFit), ...wild, ...fits.slice(nFit)].slice(0, count);
+  const prefs = persona ? personaWeights(persona) : {};
+  const taste = (d) => (d.mood || []).reduce((s, t) => s + (prefs[t] || 0), 0);
+  const fresh = (d) => (!used.has(d.id) ? 1.5 : used.get(d.id) <= 1 ? -3 : -1);
+  // A mood they clearly don't want (e.g. "dark" after "avoid all-dark") rules a direction out entirely,
+  // however well its other moods score, unless that would leave too few to choose from.
+  const vetoed = (d) => (d.mood || []).some((t) => (prefs[t] || 0) <= -4);
+  const pool = DIRECTIONS.filter((d) => !vetoed(d)).length >= count ? DIRECTIONS.filter((d) => !vetoed(d)) : DIRECTIONS;
+  const scored = shuffle(pool, rand).map((d) => ({ d, taste: taste(d), fit: d.tags.filter((t) => tags.includes(t)).length + taste(d) * 0.5 + fresh(d) + rand() * 0.9 }));
+  scored.sort((a, b) => b.fit - a.fit);
+  const nFit = Math.ceil(count * 0.66);
+  const fits = scored.slice(0, nFit).map((x) => x.d);
+  // Wildcards widen the range, but never from something the persona says to avoid.
+  const rest = scored.slice(nFit);
+  const ok = rest.filter((x) => x.taste > -2);
+  const wild = shuffle((ok.length >= count - nFit ? ok : rest).map((x) => x.d), rand).sort((a, b) => fresh(b) - fresh(a));
+  const directions = [...fits, ...wild].slice(0, count);
 
+  // Palettes and signature moments they said to avoid never reach a brief (e.g. "all-dark" → no
+  // dark-first palette, "fake terminals" → no type-into terminal).
+  const avoidText = (persona?.avoid || []).join(' ').toLowerCase();
+  const veto = [/dark|black|night/.test(avoidText) || (prefs.dark || 0) <= -4 ? /dark|neon/ : null, /terminal|console|hacker|matrix/.test(avoidText) ? /terminal/ : null, /neon|gradient/.test(avoidText) ? /neon|gradient/ : null].filter(Boolean);
+  const allowed = (list) => { const ok = list.filter((x) => !veto.some((re) => re.test(x))); return ok.length ? ok : list; };
   const layouts = shuffle(LAYOUTS, rand);
   const motions = shuffle(MOTION, rand);
-  const palettes = shuffle(PALETTES, rand);
-  const signatures = shuffle(SIGNATURES, rand);
+  const palettes = shuffle(allowed(PALETTES), rand);
+  const signatures = shuffle(allowed(SIGNATURES), rand);
 
   return directions.map((d, i) => ({
     n: i + 1,
@@ -133,6 +158,27 @@ export function makeBriefs(p, { count = 6, seed = Date.now() } = {}) {
     signature: signatures[i % signatures.length],
     wildcard: !fits.includes(d),
   }));
+}
+
+// Which directions earlier rounds used, and how many rounds ago (1 = the latest).
+export async function usedDirections(base) {
+  const used = new Map();
+  const runs = [];
+  try {
+    for (const f of await readdir(join(base, GEN_DIR))) if (/^\d+$/.test(f)) runs.push(Number(f));
+  } catch {}
+  runs.sort((a, b) => b - a);
+  for (const [i, r] of runs.entries()) {
+    const run = await readRun(base, r).catch(() => null);
+    for (const b of run?.briefs || []) {
+      const id = typeof b.direction === 'string' ? b.direction : b.direction?.id;
+      // Only directions they actually saw count: a cancelled round's undesigned drafts don't.
+      const file = b.theme ? join(base, 'themes', `${b.theme}.js`) : null;
+      const seen = file && existsSync(file) && !isPendingSource(await readFile(file, 'utf8'));
+      if (id && seen && !used.has(id)) used.set(id, i + 1);
+    }
+  }
+  return used;
 }
 
 // ---- "More like this": siblings of a design the user liked ------------------------------------
@@ -358,7 +404,7 @@ export async function createRun(base, p, { count = 6, seed, cli, like, keep = 'v
     ? [{ n: 1, mix, move: 'mix', label: `Mix of ${[...new Set([mix.layout, mix.colors, mix.type, mix.signature])].join(', ')}`, detail: '' }]
     : sketches
     ? sketches.map((sk, i) => ({ n: i + 1, sketch: sk, move: `from-${sk.layout}`, label: `From sketch: ${sk.title}`, detail: sk.mood }))
-    : like ? makeVariations(like, { count, seed: usedSeed, keep }) : makeBriefs(p, { count, seed: usedSeed });
+    : like ? makeVariations(like, { count, seed: usedSeed, keep }) : makeBriefs(p, { count, seed: usedSeed, persona, used: await usedDirections(base) });
   const dir = join(base, GEN_DIR, String(run));
   await mkdir(dir, { recursive: true });
   await mkdir(join(base, 'themes'), { recursive: true });

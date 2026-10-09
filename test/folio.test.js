@@ -875,3 +875,25 @@ test('bench A/B runs both arms in a throwaway project and writes a report', { sk
   assert.match(readFileSync(join(r.outDir, 'REPORT.md'), 'utf8'), /\| Near-duplicate pairs \| 3 \| 0 \|/);
   assert.ok(!existsSync(join(dir, 'themes')), "the person's project is untouched");
 });
+
+test('round directions follow the persona and avoid the last round', async () => {
+  const { makeBriefs, usedDirections } = await import('../src/generate.js');
+  const p = normalize(example);
+  const persona = { answers: { taste: ['Light & airy', 'Colorful & bold', 'Sleek product-like'], feel: ['Energized'] }, avoid: ['all-dark monochrome'], dials: { energy: 8 } };
+  for (let seed = 1; seed <= 20; seed++) {
+    const ids = makeBriefs(p, { count: 6, seed, persona }).map((b) => b.direction.id);
+    assert.ok(!ids.includes('cinematic'), `seed ${seed}: dark direction for a light-taste persona: ${ids}`);
+    const briefs = makeBriefs(p, { count: 6, seed, persona: { ...persona, avoid: ['all-dark monochrome', 'fake terminals'] } });
+    assert.ok(briefs.every((b) => !/dark|neon/.test(b.palette) && !/terminal/.test(b.signature)), `seed ${seed}: avoided palette/signature reached a brief`);
+  }
+  const dir = mkdtempSync(join(tmpdir(), 'folio-fresh-'));
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
+  const first = await createJob(openStore(dir), dir, p, { count: 6, cli: 'folio', seed: 7 });
+  assert.equal((await usedDirections(dir)).size, 0, 'undesigned drafts were never seen');
+  for (const f of first.files) writeFileSync(f.theme, readFileSync(f.theme, 'utf8').replace(/description: 'PENDING:[^']*'/, "description: 'designed'"));
+  const used = await usedDirections(dir);
+  assert.equal(used.size, 6);
+  const firstIds = first.files.map((f) => f.name.split('-').slice(2).join('-'));
+  const second = makeBriefs(p, { count: 6, seed: 8, used }).map((b) => b.direction.id);
+  assert.ok(second.filter((id) => firstIds.includes(id)).length <= 1, `mostly new directions: ${firstIds} → ${second}`);
+});

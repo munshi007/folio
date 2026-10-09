@@ -242,7 +242,7 @@ function rng(seed) {
 }
 
 // How much the person seems to want each tag, from their answers and dials.
-function personaWeights(persona) {
+export function personaWeights(persona) {
   const w = {};
   const add = (tag, v) => (w[tag] = (w[tag] || 0) + v);
   const a = persona?.answers || {};
