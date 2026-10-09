@@ -20,7 +20,7 @@
     "example": "node bin/folio.js build --config examples/folio.example.json --out dist-example"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22.4"
   },
   "keywords": [
     "portfolio",

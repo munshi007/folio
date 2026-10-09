@@ -1,4 +1,10 @@
 #!/usr/bin/env node
+// Checked before anything else loads: older Node fails later with confusing errors (no global WebSocket).
+const [major, minor] = process.versions.node.split('.').map(Number);
+if (major < 22 || (major === 22 && minor < 4)) {
+  console.error(`folio needs Node.js 22.4 or newer (you have ${process.versions.node}). Get it from https://nodejs.org`);
+  process.exit(1);
+}
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { createInterface } from 'node:readline/promises';

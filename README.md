@@ -64,6 +64,8 @@ A pre-flight checklist (it flags a phone number or street address before it goes
 
 ## Quick start
 
+Needs **Node.js 22.4+**. Chrome or Chromium is used for screenshots, the identity kit and the benchmark, if you have it.
+
 Three ways to do the design work. Same Studio, same results:
 
 **1. Your coding agent** (Claude Code, Cursor, Codex, OpenCode…)
