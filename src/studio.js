@@ -43,7 +43,8 @@ h2{margin:0;font:400 30px/1.1 "Instrument Serif",Georgia,serif}
 .thumb iframe{position:absolute;left:0;top:0;width:1440px;height:900px;border:0;transform-origin:0 0;pointer-events:none}
 .live .thumb{width:176px;border-radius:10px;border:0;flex:none}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,300px),1fr));gap:16px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column}
+.card>.thumb,.card>.waiting{border-radius:15px 15px 0 0}
 .card.cur{border-color:var(--acc);box-shadow:0 0 0 1px var(--acc)}
 .card.arch{opacity:.55}
 .card .body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:6px;flex:1}
@@ -523,7 +524,7 @@ async function renderDesign(id) {
   const main = $('main');
   const sel = state.v && d.versions.some((v) => v.n === state.v) ? state.v : (d.versions[0] ? d.versions[0].n : null);
   const latest = d.versions[0] ? d.versions[0].n : null;
-  const device = state.device || 'desk';
+  const device = state.device || (innerWidth < 760 ? 'phone' : 'desk');
   fill(main, 
     h('header', { class: 'row between' },
       h('div', null,
