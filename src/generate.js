@@ -254,7 +254,7 @@ Everything not under "Keep" is open. Put your version next to the original at th
 1. Edit \`themes/${name}.js\` (currently a copy of ${b.parent}). Keep \`meta.name = '${name}'\` and rewrite \`meta.description\` in one line: what this variation is.
 2. Same rules as always: nothing about the person hardcoded (their field, role or claims): only what's in folio.json or computed from it; every profile value through \`h.esc\` / \`h.inline\` / \`h.md\` / \`h.attrUrl\`; no external scripts; phones, dark and light, reduced motion, focus styles; \`h.ordered(p, sections)\`; works with JS off.
 3. \`${cli} theme check ${name}\`: **0 errors required.**
-4. \`${cli} shot --theme ${name} --scheme light --pure\`, then look at the \`-part1\` screens for desktop and mobile. Any \`page script error\` line means broken JS: fix it.
+4. \`${cli} shot --theme ${name} --scheme light --pure\`, then look at the \`-part1\` screens for desktop and mobile (sideways-scrolling designs also get \`-panelN\` screens, one per panel). Any \`page script error\` line means broken JS: fix it.
 5. At most one more fix round. Reply with the theme name and one sentence on what this variation is.
 
 Full rubric: skills/folio/DESIGN.md.
@@ -297,7 +297,7 @@ The first screen of your site should be recognizably this sketch (a person who l
 1. Edit \`themes/${name}.js\`. Keep \`meta.name = '${name}'\` and write a one-line \`meta.description\`.
 2. Rules: never hardcode anything about the person (field, role or claims): words about them come from folio.json or are computed from it. Every profile value through \`h.esc\` / \`h.inline\` / \`h.md\` / \`h.attrUrl\`; no external scripts; at most 2 font families; phones, dark and light, reduced motion, focus styles; \`h.ordered(p, sections)\`; works with JS off.
 3. \`${cli} theme check ${name}\`: **0 errors required.**
-4. \`${cli} shot --theme ${name} --scheme light --pure\`, look at the \`-part1\` and \`-part2\` screens for desktop and mobile; fix what's off. Any \`page script error\` means broken JS.
+4. \`${cli} shot --theme ${name} --scheme light --pure\`, look at the \`-part1\` and \`-part2\` screens for desktop and mobile (sideways-scrolling designs also get \`-panelN\` screens, one per panel); fix what's off. Any \`page script error\` means broken JS.
 5. At most one more fix round. Reply with the theme name and one sentence on the result.
 
 Full rubric: skills/folio/DESIGN.md.
@@ -327,7 +327,7 @@ It must read as one design, not a collage: retune spacing, contrast and accents 
 1. Edit \`themes/${name}.js\` (a copy of ${m.layout}). Keep \`meta.name = '${name}'\`; write a one-line \`meta.description\` naming what came from where.
 2. Rules: nothing about the person hardcoded; every profile value through \`h.esc\` / \`h.inline\` / \`h.md\` / \`h.attrUrl\`; no external scripts; at most 2 font families; phones, dark and light, reduced motion, focus styles; \`h.ordered(p, sections)\`; works with JS off.
 3. \`${cli} theme check ${name}\`: **0 errors required.**
-4. \`${cli} shot --theme ${name} --scheme light --pure\` and look at the \`-part1\` screens; fix what's off.
+4. \`${cli} shot --theme ${name} --scheme light --pure\` and look at the \`-part1\` screens (sideways-scrolling designs also get \`-panelN\` screens, one per panel); fix what's off.
 5. Reply with the theme name and one sentence on the result.
 `;
 }
@@ -386,7 +386,7 @@ ${contentShape(p)}
 1. Edit \`themes/${name}.js\`. It already renders every section safely (it's the starter). Rewrite it completely to match the brief. Keep \`meta.name = '${name}'\` and write a one-line \`meta.description\` of the look.
 2. Rules: never hardcode anything about the person (their field, role or claims like "shipping data systems"): every word about them comes from folio.json or is computed from it, and the theme must stay true for a student, an illustrator or a CTO. Every profile value goes through \`h.esc\` / \`h.inline\` / \`h.md\` / \`h.attrUrl\`; no external \`<script src>\`; at most 2 font families; handle phones, dark *and* light, \`prefers-reduced-motion\`, \`:focus-visible\`; sort sections with \`h.ordered(p, sections)\`. The page must work with JS off.
 3. \`${cli} theme check ${name}\`: **0 errors required.**
-4. \`${cli} shot --theme ${name} --scheme light --pure\`, then look at the \`-part1\` and \`-part2\` screens (desktop and mobile); each is exactly one real screen. Any \`page script error\` line means your JS is broken: fix it. Fix what looks off: the 5-second read, orphan gaps, cramped phones, generic look.
+4. \`${cli} shot --theme ${name} --scheme light --pure\`, then look at the \`-part1\` and \`-part2\` screens (desktop and mobile) (sideways-scrolling designs also get \`-panelN\` screens, one per panel); each is exactly one real screen. Any \`page script error\` line means your JS is broken: fix it. Fix what looks off: the 5-second read, orphan gaps, cramped phones, generic look.
 5. One more check → shot round if anything scored below 4/5. Then stop; don't polish forever.
 6. Reply with: the theme name, two sentences on the idea, and anything you couldn't get right.
 

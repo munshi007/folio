@@ -8,7 +8,6 @@ import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-export const cdpAvailable = () => typeof globalThis.WebSocket === 'function';
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
@@ -111,6 +110,12 @@ export async function launch(bin) {
     async screen(y) {
       await send('Runtime.evaluate', { expression: `window.scrollTo(0, ${Number(y)})` });
       await sleep(120);
+      const { data } = await send('Page.captureScreenshot', { format: 'png' });
+      return Buffer.from(data, 'base64');
+    },
+    // The current viewport as it is (no scrolling first).
+    async capture() {
+      await sleep(150);
       const { data } = await send('Page.captureScreenshot', { format: 'png' });
       return Buffer.from(data, 'base64');
     },

@@ -54,7 +54,7 @@ Hard rules (the checker enforces most):
 
 Each round:
 1. `folio theme check <name>`. **0 errors is required**; treat warnings as fix-or-justify.
-2. `folio shot --theme <name>` writes full pages plus readable `-partN` slices for desktop and phone, light and dark, into `folio-shots/`. **Look at the slices**, not just the full-page thumbnails. No Chrome? Use your own browser or screenshot tool on `folio dev`.
+2. `folio shot --theme <name>` writes full pages plus readable `-partN` slices for desktop and phone, light and dark, into `folio-shots/` (designs that scroll sideways also get one `-panelN` screen per panel). **Look at the slices**, not just the full-page thumbnails. No Chrome? Use your own browser or screenshot tool on `folio dev`.
 3. Score each line 1–5 and write the scores down:
 
 | Criterion | What a 5 looks like |

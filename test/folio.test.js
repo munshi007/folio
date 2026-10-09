@@ -233,8 +233,8 @@ test('dev server style endpoint rejects cross-site and malformed writes', async 
   const dir = mkdtempSync(join(tmpdir(), 'folio-serve-'));
   const cfg = join(dir, 'folio.json');
   writeFileSync(cfg, JSON.stringify({ name: 'A', theme: 'bento' }));
-  const port = 4800 + Math.floor(Math.random() * 500);
-  const srv = await serve({ config: cfg, port });
+  const srv = await serve({ config: cfg, port: 0 });
+  const port = srv.port;
   const post = (headers, body) =>
     fetch(`http://127.0.0.1:${port}/__folio/style`, { method: 'POST', headers, body: JSON.stringify(body) }).then((r) => r.status);
   try {
@@ -418,8 +418,8 @@ test('studio API: reads, guarded writes, version preview, host check', async () 
   writeFileSync(join(dir, 'folio.json'), JSON.stringify({ ...example, theme: 'bento' }));
   mkdirSync(join(dir, 'themes'));
   writeFileSync(join(dir, 'themes', 'mine.js'), `export const meta = { name: 'mine', description: 'first' };\nexport function render(p, h) { return { css: '', body: '<h1>FIRST ' + h.esc(p.name) + '</h1>' }; }\n`);
-  const port = 5400 + Math.floor(Math.random() * 400);
-  const srv = await serve({ config: join(dir, 'folio.json'), port });
+  const srv = await serve({ config: join(dir, 'folio.json'), port: 0 });
+  const port = srv.port;
   const base = `http://127.0.0.1:${port}`;
   const post = (path, body, headers = {}) => fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1', ...headers }, body: JSON.stringify(body) });
   try {
@@ -484,8 +484,8 @@ test('jobs: parallel claims never collide, finished designs are detected, cancel
 test('jobs API validates input', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'folio-jobsapi-'));
   writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
-  const port = 5800 + Math.floor(Math.random() * 300);
-  const srv = await serve({ config: join(dir, 'folio.json'), port });
+  const srv = await serve({ config: join(dir, 'folio.json'), port: 0 });
+  const port = srv.port;
   const post = (body) => fetch(`http://127.0.0.1:${port}/api/jobs`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1' }, body: JSON.stringify(body) });
   try {
     assert.equal((await post({ count: 99 })).status, 400);
@@ -603,8 +603,8 @@ test('sketches: render safely, every layout works, auto rounds never repeat, tas
 test('studio API: persona answers before a read, sketches round + build job', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'folio-front-'));
   writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
-  const port = 6100 + Math.floor(Math.random() * 300);
-  const srv = await serve({ config: join(dir, 'folio.json'), port });
+  const srv = await serve({ config: join(dir, 'folio.json'), port: 0 });
+  const port = srv.port;
   const base = `http://127.0.0.1:${port}`;
   const post = (path, body) => fetch(base + path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1' }, body: JSON.stringify(body) });
   try {
@@ -641,8 +641,8 @@ test('traits come from what a design renders', async () => {
 test('mix job copies the layout design and briefs the other parts', async () => {
   const dir = mkdtempSync(join(tmpdir(), 'folio-mix-'));
   writeFileSync(join(dir, 'folio.json'), JSON.stringify(example));
-  const port = 6500 + Math.floor(Math.random() * 300);
-  const srv = await serve({ config: join(dir, 'folio.json'), port });
+  const srv = await serve({ config: join(dir, 'folio.json'), port: 0 });
+  const port = srv.port;
   const post = (path, body) => fetch(`http://127.0.0.1:${port}${path}`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1' }, body: JSON.stringify(body) });
   try {
     assert.equal((await post('/api/jobs', { mix: { layout: 'bento', colors: 'nope', type: 'editorial', signature: 'terminal' } })).status, 400);
@@ -673,8 +673,8 @@ test('publish: checklist flags personal details, needs confirmation, can just bu
   assert.ok(c.items.some((i) => i.level === 'error' && /phone/.test(i.text)));
   assert.ok(c.items.some((i) => i.level === 'error' && /street address/.test(i.text)));
   writeFileSync(cfg, JSON.stringify(example));
-  const port = 6800 + Math.floor(Math.random() * 300);
-  const srv = await serve({ config: cfg, port });
+  const srv = await serve({ config: cfg, port: 0 });
+  const port = srv.port;
   const post = (body) => fetch(`http://127.0.0.1:${port}/api/publish`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1' }, body: JSON.stringify(body) });
   try {
     assert.equal((await post({ host: 'github-pages' })).status, 400, 'needs confirm');
@@ -720,8 +720,8 @@ test('content: Studio edits validate, keep the design, version, restore; uploads
   const dir = mkdtempSync(join(tmpdir(), 'folio-content-'));
   const cfg = join(dir, 'folio.json');
   writeFileSync(cfg, JSON.stringify({ ...example, theme: 'terminal' }));
-  const port = 7100 + Math.floor(Math.random() * 300);
-  const srv = await serve({ config: cfg, port });
+  const srv = await serve({ config: cfg, port: 0 });
+  const port = srv.port;
   const u = `http://127.0.0.1:${port}`;
   const post = (path, body) => fetch(u + path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Folio': '1' }, body: JSON.stringify(body) });
   try {
@@ -896,4 +896,20 @@ test('round directions follow the persona and avoid the last round', async () =>
   const firstIds = first.files.map((f) => f.name.split('-').slice(2).join('-'));
   const second = makeBriefs(p, { count: 6, seed: 8, used }).map((b) => b.direction.id);
   assert.ok(second.filter((id) => firstIds.includes(id)).length <= 1, `mostly new directions: ${firstIds} → ${second}`);
+});
+
+test('shot captures each panel of a sideways-scrolling design', { skip: !findChrome() && 'no Chrome' }, async () => {
+  const { shoot } = await import('../src/shot.js');
+  const dir = mkdtempSync(join(tmpdir(), 'folio-hshot-'));
+  mkdirSync(join(dir, 'themes'));
+  writeFileSync(join(dir, 'themes', 'sideways.js'), `export const meta = { name: 'sideways', description: 'panels' };
+export function render(p, h) {
+  const panels = ['about', 'projects', 'experience', 'skills'].map((id) => '<section id="' + id + '" style="flex:0 0 100vw;height:100vh">' + h.esc(p.name) + ' ' + id + '</section>').join('');
+  return { css: 'html,body{margin:0}main{display:flex;overflow-x:auto;height:100vh}@media (prefers-color-scheme:dark){body{background:#000;color:#fff}}:focus-visible{outline:2px solid}@media (prefers-reduced-motion:reduce){*{transition:none}}@media (max-width:600px){main{display:block}}', body: '<main>' + panels + '</main>' };
+}`);
+  writeFileSync(join(dir, 'folio.json'), JSON.stringify({ ...example, theme: 'sideways' }));
+  const r = await shoot({ config: join(dir, 'folio.json'), out: join(dir, 'shots'), schemes: ['light'], devices: ['desktop'] });
+  const panels = r.files.filter((f) => /-panel\d+\.png$/.test(f.file));
+  assert.equal(panels.length, 4);
+  assert.notDeepEqual(readFileSync(panels[0].file), readFileSync(panels[3].file), 'panels are different screens');
 });

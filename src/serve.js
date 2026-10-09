@@ -281,11 +281,13 @@ export async function serve({ config = 'folio.json', port = 4321, theme } = {}) 
     server.once('error', fail);
     server.listen(port, '127.0.0.1', ok);
   });
+  // Port 0 asks the OS for a free port; every check above reads `port`, so use the real one from here on.
+  port = server.address().port;
   const close = () => {
     clearTimeout(timer);
     watchers.forEach((w) => w.close());
     clients.forEach((c) => c.end());
     server.close();
   };
-  return { url: `http://localhost:${port}`, close };
+  return { url: `http://localhost:${port}`, port, close };
 }
